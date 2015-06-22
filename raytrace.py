@@ -47,7 +47,7 @@ def create_rectangle(w, h):
     points = np.zeros((4, 2), dtype=np.float32)
     lixels = np.zeros((4, 2), dtype=np.int32)
     
-    points[1, 1], points[3, 1] = h, h
+    points[1, 1], points[2, 1] = h, h
     points[2, 0], points[3, 0] = w, w
     
     lixels[:, 0] = np.arange(np.size(points, 0))
@@ -135,7 +135,33 @@ class Simulation(object):
         
     def draw(self):
         # TODO: plot lixels (lines)
-        plt.scatter(self.geometry.mesh.points[:, 0], self.geometry.mesh.points[:, 1])
+        for solid in self.geometry.solids:
+            lixels, points = trace_lixel_geometry(solid.mesh.lixels, solid.mesh.points)
+            print points
+            xs = np.concatenate([points[:, 0], [points[0, 0]]])
+            ys = np.concatenate([points[:, 1], [points[0, 1]]])
+            plt.fill(xs, ys)
+#        plt.scatter(self.geometry.mesh.points[:, 0], self.geometry.mesh.points[:, 1])
+
+def trace_lixel_geometry(lixels, points):
+    """
+    mesh points not neccessarily in order, reorganize points such that
+    point[i], point[i+1], ... point[0] will trace out continuous path
+    """
+    new_index = np.zeros(np.size(lixels, 0), dtype=np.int32)
+    
+    next_index = 0
+    
+    for i, lixel in enumerate(lixels):
+        new_index[i] = next_index
+        
+        next_index = np.where(lixels[new_index[i], 1] == lixels[:, 0])[0][0]
+    
+    if lixels[new_index[0], 0] != lixels[new_index[-1], 1]:
+        print 'error'
+        print new_index
+    else:
+        return lixels[new_index], points[new_index]
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
