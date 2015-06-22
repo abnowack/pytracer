@@ -8,7 +8,6 @@ TODO: Implement Geometry Checking
     - Test if any lixels overlap
     - Cannot have hole in a hole, or solid in a solid
 TODO: Use Bounded Volume Heirarchy to Reduce Lixel Search
-TODO: Material Renderer
 """
 import numpy as np
 
@@ -46,13 +45,36 @@ class Mesh(object):
     def __add__(self, other):
         return Mesh(np.concatenate([self.points, other.points]),
                     np.concatenate([self.lixels, other.lixels + np.size(self.lixels, 0)]))
+    
+    def continuous_path_order(self):
+        """
+        mesh points not neccessarily in order, reorganize points such that
+        point[i], point[i+1], ... point[0] will trace out continuous path
+        """
+        new_index = []
+    
+        next_index = 0
+    
+        for i, lixel in enumerate(self.lixels):
+            if next_index not in new_index:
+                new_index.append(next_index)
+            else:
+                others = np.setdiff1d(self.lixels, self.lixels[new_index])
+                next_index = np.where(self.lixels[others[0]] == self.lixels)[0][0]
+                new_index.append(next_index)
+    
+            next_index = np.where(self.lixels[new_index[-1], 1] == self.lixels[:, 0])[0][0]
+    
+        return self.lixels[new_index], self.points[new_index]
 
 def create_rectangle(w, h):
     points = np.zeros((4, 2), dtype=np.float32)
     lixels = np.zeros((4, 2), dtype=np.int32)
     
-    points[1, 1], points[2, 1] = h, h
-    points[2, 0], points[3, 0] = w, w
+    points[1, 1], points[2, 1] = h/2., h/2.
+    points[0, 1], points[3, 1] = -h/2., -h/2.
+    points[2, 0], points[3, 0] = w/2., w/2.
+    points[0, 0], points[1, 0] = -w/2., -w/2.
     
     lixels[:, 0] = np.arange(np.size(points, 0))
     lixels[:, 1] = np.roll(lixels[:, 0], 1)
@@ -72,6 +94,25 @@ def create_circle(radius, n_segments=20):
     
     return Mesh(points, lixels)
 
+def create_hollow(outer_object, inner_object):
+    inner_object.points = inner_object.points[::-1]
+    return outer_object + inner_object
+
+def angle_matrix(angle, radian=False):
+    if not radian:
+        angle = angle / 180. * np.pi
+    
+    return np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
+
+def translate_rotate_mesh(meshes, translate=np.zeros((2)), rotate=np.identity(2)):
+    try:
+        iterator = iter(meshes)
+    except TypeError:
+        meshes.points = np.inner(meshes.points, rotate) + translate
+    else:
+        for mesh in meshes:
+            mesh.points = np.inner(mesh.points, rotate) + translate
+
 class Material(object):
     def __init__(self, attenuation, color='black'):
         self.attenuation = attenuation
@@ -90,13 +131,6 @@ class Solid(object):
 class Geometry(object):
     def __init__(self):
         self.solids = []
-        self.rotations = []
-        self.translations = []
-    
-    def add_solid(self, solid, rotation=np.identity(2), translation=np.zeros((2))):
-        self.solids.append(solid)
-        self.rotations.append(rotation)
-        self.translations.append(translation)
     
     def flatten(self):
         n_points = np.cumsum([0] + [np.size(solid.mesh.points, 0) for solid in self.solids])
@@ -105,20 +139,24 @@ class Geometry(object):
         points = [0] + np.zeros((sum(n_points), 2), dtype=np.float32)
         lixels = [0] + np.zeros((sum(n_lixels), 2), dtype=np.int32)
         
-        for i, (solid, rot, trans) in enumerate(zip(self.solids, self.rotations, self.translations)):
-            points[n_points[i]:n_points[i+1]] = np.inner(solid.mesh.points, rot) + trans
-            lixels[n_lixels[i]:n_lixels[i+1]] = solid.mesh.lixels + n_lixels[i]
-        
         self.mesh = Mesh(points, lixels)
         self.materials = np.unique(np.concatenate([np.concatenate([solid.inner_material, solid.outer_material]) for solid in self.solids]))
         self.inner_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.inner_material] for solid in self.solids])
         self.outer_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.outer_material] for solid in self.solids])
 
+class Detector(object):
+    def __init__:
+        self.center = np.array([0., 0.])
+    
+    def Plane(width):
+    
+    def Arc(diameter, degrees):
+
 class Simulation(object):
-    def __init__(self):
+    def __init__(self, diameter=100., detector=None):
         self.geometry = Geometry()
-        self.detector = None
-        self.source = None
+        self.detector = detector
+        self.source = np.array([-diameter/2., 0.])
     
     def create_source_detector(self, angle):
         source = np.array([-self.diameter, 0.], dtype=np.float32)
@@ -139,9 +177,8 @@ class Simulation(object):
         print sorted_lixels
         
     def draw(self):
-        # TODO: plot lixels (lines)
         for solid in self.geometry.solids:
-            lixels, points = trace_lixel_geometry(solid.mesh.lixels, solid.mesh.points)
+            lixels, points = solid.mesh.continuous_path_order()
             xs = [points[lixels[0, 0]][0]]
             ys = [points[lixels[0, 0]][1]]
             for lixel in lixels:
@@ -153,27 +190,11 @@ class Simulation(object):
                     ys.extend(points[lixel][:, 1])
 
             plt.fill(xs, ys, color=solid.color)
+        
+        if self.source is not None:
+            plt.scatter(self.source[0], self.source[1], color='red', marker='x')
 
-def trace_lixel_geometry(lixels, points):
-    """
-    mesh points not neccessarily in order, reorganize points such that
-    point[i], point[i+1], ... point[0] will trace out continuous path
-    """
-    new_index = [] #np.zeros(np.size(lixels, 0), dtype=np.int32)
-    
-    next_index = 0
-    
-    for i, lixel in enumerate(lixels):
-        if next_index not in new_index:
-            new_index.append(next_index)
-        else:
-            others = np.setdiff1d(lixels, lixels[new_index])
-            next_index = np.where(lixels[others[0]] == lixels)[0][0]
-            new_index.append(next_index)
-
-        next_index = np.where(lixels[new_index[-1], 1] == lixels[:, 0])[0][0]
-
-    return lixels[new_index], points[new_index]
+        plt.axis('equal')
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -183,16 +204,21 @@ if __name__ == "__main__":
     poly = Material(0.1, 'red')
     steel = Material(0.3, 'orange')
     
-    box = create_rectangle(10., 10.)
-    circle = create_circle(10.)
-    inner_circle = create_circle(5.)
-    inner_circle.points = inner_circle.points[::-1]
+    box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
+    hollow_circle = create_hollow(create_circle(3.9), create_circle(2.9))
+    translate_rotate_mesh(hollow_circle, [-9+3.9+0.1, 0.])
+    small_box_1 = create_rectangle(2., 2.)
+    translate_rotate_mesh(small_box_1, [6., 2.])
+    small_box_2 = create_rectangle(2., 2.)
+    translate_rotate_mesh(small_box_2, [6., -2.])
     
-    hollow_circle = circle + inner_circle
+    translate_rotate_mesh([box, hollow_circle, small_box_1, small_box_2], [20., 10.], angle_matrix(30.))
     
     sim = Simulation()
-    sim.geometry.add_solid(Solid(box, steel, air))
-    sim.geometry.add_solid(Solid(hollow_circle, poly, air))
+    sim.geometry.solids.append(Solid(box, steel, air))
+    sim.geometry.solids.append(Solid(hollow_circle, poly, air))
+    sim.geometry.solids.append(Solid(small_box_1, u235_metal, air))
+    sim.geometry.solids.append(Solid(small_box_2, u235_metal, air))
     sim.geometry.flatten()
     
     sim.draw()
