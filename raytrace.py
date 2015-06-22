@@ -42,6 +42,10 @@ class Mesh(object):
     def __init__(self, points, lixels):
         self.points = points
         self.lixels = lixels
+    
+    def __add__(self, other):
+        return Mesh(np.concatenate([self.points, other.points]),
+                    np.concatenate([self.lixels, other.lixels + np.size(self.lixels, 0)]))
 
 def create_rectangle(w, h):
     points = np.zeros((4, 2), dtype=np.float32)
@@ -69,18 +73,19 @@ def create_circle(radius, n_segments=20):
     return Mesh(points, lixels)
 
 class Material(object):
-    def __init__(self, attenuation):
+    def __init__(self, attenuation, color='black'):
         self.attenuation = attenuation
+        self.color = color
     
     def __eq__(self, other):
         return self.attenuation == other.attenuation
 
 class Solid(object):
-    def __init__(self, mesh, inner_material, outer_material, color='black'):
+    def __init__(self, mesh, inner_material, outer_material):
         self.mesh = mesh
         self.inner_material = np.tile(inner_material, np.size(self.mesh.lixels, 0))
         self.outer_material = np.tile(outer_material, np.size(self.mesh.lixels, 0))
-        self.color = color
+        self.color = inner_material.color
 
 class Geometry(object):
     def __init__(self):
@@ -137,46 +142,57 @@ class Simulation(object):
         # TODO: plot lixels (lines)
         for solid in self.geometry.solids:
             lixels, points = trace_lixel_geometry(solid.mesh.lixels, solid.mesh.points)
-            print points
-            xs = np.concatenate([points[:, 0], [points[0, 0]]])
-            ys = np.concatenate([points[:, 1], [points[0, 1]]])
-            plt.fill(xs, ys)
-#        plt.scatter(self.geometry.mesh.points[:, 0], self.geometry.mesh.points[:, 1])
+            xs = [points[lixels[0, 0]][0]]
+            ys = [points[lixels[0, 0]][1]]
+            for lixel in lixels:
+                if points[lixel[0]][0] == xs[-1] and points[lixel[0]][1] == ys[-1]:
+                    xs.append(points[lixel[1]][0])
+                    ys.append(points[lixel[1]][1])
+                else:
+                    xs.extend(points[lixel][:, 0])
+                    ys.extend(points[lixel][:, 1])
+
+            plt.fill(xs, ys, color=solid.color)
 
 def trace_lixel_geometry(lixels, points):
     """
     mesh points not neccessarily in order, reorganize points such that
     point[i], point[i+1], ... point[0] will trace out continuous path
     """
-    new_index = np.zeros(np.size(lixels, 0), dtype=np.int32)
+    new_index = [] #np.zeros(np.size(lixels, 0), dtype=np.int32)
     
     next_index = 0
     
     for i, lixel in enumerate(lixels):
-        new_index[i] = next_index
-        
-        next_index = np.where(lixels[new_index[i], 1] == lixels[:, 0])[0][0]
-    
-    if lixels[new_index[0], 0] != lixels[new_index[-1], 1]:
-        print 'error'
-        print new_index
-    else:
-        return lixels[new_index], points[new_index]
+        if next_index not in new_index:
+            new_index.append(next_index)
+        else:
+            others = np.setdiff1d(lixels, lixels[new_index])
+            next_index = np.where(lixels[others[0]] == lixels)[0][0]
+            new_index.append(next_index)
+
+        next_index = np.where(lixels[new_index[-1], 1] == lixels[:, 0])[0][0]
+
+    return lixels[new_index], points[new_index]
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
-    air = Material(0.0)
-    u235_metal = Material(0.5)
-    poly = Material(0.1)
-    steel = Material(0.3)
+    air = Material(0.0, 'white')
+    u235_metal = Material(0.5, 'green')
+    poly = Material(0.1, 'red')
+    steel = Material(0.3, 'orange')
     
     box = create_rectangle(10., 10.)
     circle = create_circle(10.)
+    inner_circle = create_circle(5.)
+    inner_circle.points = inner_circle.points[::-1]
+    
+    hollow_circle = circle + inner_circle
     
     sim = Simulation()
     sim.geometry.add_solid(Solid(box, steel, air))
-    sim.geometry.add_solid(Solid(circle, poly, air))
+    sim.geometry.add_solid(Solid(hollow_circle, poly, air))
     sim.geometry.flatten()
     
     sim.draw()
