@@ -8,312 +8,149 @@ TODO: Implement Geometry Checking
     - Test if any lixels overlap
     - Cannot have hole in a hole, or solid in a solid
 TODO: Use Bounded Volume Heirarchy to Reduce Lixel Search
-TODO: Remove out of bounds Lixels
 TODO: Material Renderer
 """
 import numpy as np
 
-class Point(object):
-    def __init__(self, x, y):
-        self.__x__, self.__y__ = x, y
+def line_segment_intersect(line_a, line_b):
+    p = line_a[0]
+    r = line_a[1] - line_a[0]
+    q = line_b[0]
+    s = line_b[1] - line_b[0]
     
-    def __str__(self):
-        return '({0}, {1})'.format(self.x, self.y)
+    denom = r[0] * s[1] - r[1] * s[0]
+    u_num = (q - p)[0] * r[1] - (q - p)[1] * r[0]
+    t_num = (q - p)[0] * s[1] - (q - p)[1] * s[0]
     
-    @property
-    def x(self):
-        return self.__x__
+    if denom == 0. and u_num == 0.:
+        # colinear
+        return None # TODO: what should this really return?
+    elif denom == 0. and u_num != 0.:
+        # parallel
+        return None
+        
+    t = t_num / denom
+    u = u_num / denom
 
-    @property    
-    def y(self):
-        return self.__y__
+    if 0 <= t <= 1. and 0 <= u <= 1.:
+        return p + t * r
+    else:
+        # beyond line segment boundary
+        return None
+
+class Mesh(object):
+    def __init__(self, points, lixels):
+        self.points = points
+        self.lixels = lixels
+
+def create_rectangle(w, h):
+    points = np.zeros((4, 2), dtype=np.float32)
+    lixels = np.zeros((4, 2), dtype=np.int32)
+    
+    points[1, 1], points[3, 1] = h, h
+    points[2, 0], points[3, 0] = w, w
+    
+    lixels[:, 0] = np.arange(np.size(points, 0))
+    lixels[:, 1] = np.roll(lixels[:, 0], 1)
+    
+    return Mesh(points, lixels)
+
+def create_circle(radius, n_segments=20):
+    points = np.zeros((n_segments, 2), dtype=np.float32)
+    lixels = np.zeros((n_segments, 2), dtype=np.int32)
+    
+    radians = np.linspace(0., 2 * np.pi, n_segments+1)[:-1]
+    points[:, 0] = np.cos(radians) * radius
+    points[:, 1] = np.sin(radians) * radius
+    
+    lixels[:, 0] = np.arange(np.size(points, 0))
+    lixels[:, 1] = np.roll(lixels[:, 0], 1)
+    
+    return Mesh(points, lixels)
+
+class Material(object):
+    def __init__(self, attenuation):
+        self.attenuation = attenuation
     
     def __eq__(self, other):
-        return self.__x__ == other.__x__ and self.__y__ == self.__y__
-    
-    def __add__(self, other):
-        return Point(self.__x__ + other.__x__, self.__y__ + other.__y__)
-    
-    def __radd__(self, other):
-        return Point.__add__(self, other)
-    
-    def __sub__(self, other):
-        return Point(self.__x__ - other.__x__, self.__y__ - other.__y__)
-    
-    def __rsub__(self, other):
-        return Point.__sub__(self, other)
-    
-    def __mul__(self, other):
-        return Point(self.__x__ * other, self.__y__ * other)
-    
-    def __rmul__(self, other):
-        return Point.__mul__(self, other)
-    
-    def __div__(self, other):
-        return Point.__mul__(self, 1./other)
-    
-    def __rdiv__(self, other):
-        return Point.__div__(self, other)
+        return self.attenuation == other.attenuation
 
-class Lixel(object):
-    def __init__(self, point_1, point_2):
-        self.points = [point_1, point_2]
-    
-    def normal(self):
-        """ Vector defined by cross-product of (0,0,1) and P2-P1 """
-        px = self.points[0].y - self.points[1].y
-        py = self.points[1].x - self.points[0].x
-        length = np.sqrt(px**2. + py**2.)
-        return Point(px / length, py / length)
-    
-    def center(self):
-        center_x = (self.points[0].x + self.points[1].x) / 2.
-        center_y = (self.points[0].y + self.points[1].y) / 2.
-        return Point(center_x, center_y)
-    
-    def calc_intercept(self, point_1, point_2):
-        ''' Given Line Segments:
-            - p, p+r
-            - q, q+s
-            Find intercept point where: p + t * r = q + u * s
-            where 0 <= t <= 1, 0 <= u <= 1
-            
-            t = (q - p) x s / (r x s)
-            u = (q - p) x r / (r x s)
-            
-            where a x b = a_x * b_y - a_y * b_x
-        '''
-        
-        p = point_1
-        r = point_2 - point_1
-        q = self.points[0]
-        s = self.points[1] - self.points[0]
-        
-        denom = r.x * s.y - r.y * s.x
-        u_num = (q - p).x * r.y - (q - p).y * r.x
-        t_num = (q - p).x * s.y - (q - p).y * s.x
-        
-        if denom == 0. and u_num == 0.:
-            # colinear
-            return None # TODO: what should this really return?
-        elif denom == 0. and u_num != 0.:
-            # parallel
-            return None
-            
-        t = t_num / denom
-        u = u_num / denom
-
-        if 0 <= t <= 1. and 0 <= u <= 1.:
-            return p + t * r
-        else:
-            # beyond line segment boundary
-            return None
+class Solid(object):
+    def __init__(self, mesh, inner_material, outer_material, color='black'):
+        self.mesh = mesh
+        self.inner_material = np.tile(inner_material, np.size(self.mesh.lixels, 0))
+        self.outer_material = np.tile(outer_material, np.size(self.mesh.lixels, 0))
+        self.color = color
 
 class Geometry(object):
     def __init__(self):
-        self.__attenuation__ = 0.
+        self.solids = []
+        self.rotations = []
+        self.translations = []
     
-    @property
-    def attenuation(self):
-        return self.__attenuation__
+    def add_solid(self, solid, rotation=np.identity(2), translation=np.zeros((2))):
+        self.solids.append(solid)
+        self.rotations.append(rotation)
+        self.translations.append(translation)
     
-    """ Points must be given in clockwise orientation """
-    def generate_points(self, *args):
-        return []
-    
-    def Lixelate(self, n_lixels=4, positive=True):
-        points = self.generate_points(n_lixels, positive)
+    def flatten(self):
+        n_points = np.cumsum([0] + [np.size(solid.mesh.points, 0) for solid in self.solids])
+        n_lixels = np.cumsum([0] + [np.size(solid.mesh.lixels, 0) for solid in self.solids])
         
-        lixels = []
-        for i in xrange(len(points)):
-            p1 = points[i]
-            p2 = points[(i+1) % len(points)]
-            
-            lixel = Lixel(p1, p2)
-            lixels.append(lixel)
-        return lixels
+        points = [0] + np.zeros((sum(n_points), 2), dtype=np.float32)
+        lixels = [0] + np.zeros((sum(n_lixels), 2), dtype=np.int32)
+        
+        for i, (solid, rot, trans) in enumerate(zip(self.solids, self.rotations, self.translations)):
+            points[n_points[i]:n_points[i+1]] = np.inner(solid.mesh.points, rot) + trans
+            lixels[n_lixels[i]:n_lixels[i+1]] = solid.mesh.lixels + n_lixels[i]
+        
+        self.mesh = Mesh(points, lixels)
+        self.materials = np.unique(np.concatenate([np.concatenate([solid.inner_material, solid.outer_material]) for solid in self.solids]))
+        self.inner_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.inner_material] for solid in self.solids])
+        self.outer_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.outer_material] for solid in self.solids])
 
-class Rectangle(Geometry):
-    def __init__(self, point_1, point_2, attenuation=0.):
-        self.__point_1__, self.__point_2__ = point_1, point_2
-        self.__attenuation__ = attenuation
+class Simulation(object):
+    def __init__(self):
+        self.geometry = Geometry()
+        self.detector = None
+        self.source = None
     
-    def generate_points(self, n_lidels=4, positive=True):
-        center_x = (self.__point_1__.x + self.__point_2__.x) / 2.
-        center_y = (self.__point_1__.y + self.__point_2__.y) / 2.
-        width = abs(self.__point_1__.x - self.__point_2__.x)
-        height = abs(self.__point_1__.y - self.__point_2__.y)
-        
-        point_1 = Point(center_x - width / 2., center_y - height / 2.)
-        point_2 = Point(center_x - width / 2., center_y + height / 2.)
-        point_3 = Point(center_x + width / 2., center_y + height / 2.)
-        point_4 = Point(center_x + width / 2., center_y - height / 2.)
-        
-        points = [point_1, point_2, point_3, point_4]
-        
-        if positive:
-            return points
-        else:
-            return points[::-1]
-
-class Circle(Geometry):
-    def __init__(self, center, radius, attenuation=0.):
-        self.__center__, self.__radius__ = center, radius
-        self.__attenuation__ = attenuation
+    def create_source_detector(self, angle):
+        source = np.array([-self.diameter, 0.], dtype=np.float32)
     
-    def generate_points(self, n_lixels=20, positive=True):
-        # TODO: adjust radius to be aligned for approximate circle
-        points = []
-        radians = np.linspace(2. * np.pi, 0., n_lixels+1)[0:-1]
-        for radian in radians:
-            point_x = self.__center__.x + self.__radius__ * np.cos(radian)
-            point_y = self.__center__.y + self.__radius__ * np.sin(radian)
-            points.append(Point(point_x, point_y))
-        if positive:
-            return points
-        else:
-            return points[::-1]
-
-class Torus(object):
-    def __init__(self, center, inner_radius, outer_radius, attenuation=0.):
-        self.__center__ = center
-        self.__inner_radius__ = inner_radius
-        self.__outer_radius__ = outer_radius
-        self.__attenuation__ = attenuation
+    def attenuation_length(self, start, end):
+        if not hasattr(self.geometry, 'mesh'):
+            self.geometry.flatten()
+        intersecting_lixels = []
+        distances = []
+        for i, lixel in enumerate(self.geometry.mesh.lixels):
+            intersect = line_segment_intersect(self.geometry.mesh.points(lixel), np.array(start, end))
+            if intersect:
+                intersecting_lixels.append(i)
+                distance = np.norm(intersect - start)
+                distances.append(intersect)
+        sorted_lixels = intersecting_lixels[distances.argsort()]
         
-        self.__inner_circle__ = Circle(center, inner_radius, 0.)
-        self.__outer_circle__ = Circle(center, outer_radius, attenuation)
-    
-    def Lixelate(self, n_lixels=20):
-        outer_lixels = self.__outer_circle__.Lixelate(n_lixels)
-        inner_lixels = self.__inner_circle__.Lixelate(n_lixels, False)
-        return outer_lixels + inner_lixels
-
-class HollowObject(object):
-    ''' Duck typed class for composition of objects with hollow center '''
-    def __init__(self, outer_object, inner_object, attenuation):
-        self.__outer_object__ = outer_object
-        self.__inner_object__ = inner_object
-        self.__attenuation__ = attenuation
-    
-    @property
-    def attenuation(self):
-        return self.__attenuation__
-    
-    def Lixelate(self, n_lixels=20):
-        outer_lixels = self.__outer_object__.Lixelate(n_lixels)
-        inner_lixels = self.__inner_object__.Lixelate(n_lixels, False)
-        return outer_lixels + inner_lixels
-
-class DetectorPlane(object):
-    def __init__(self, center, angle, length, nbins):
-        self.__center__ = center
-        self.__angle__ = angle
-        self.__length__ = length
-        self.__nbins__ = nbins
+        print sorted_lixels
         
-        self.__bins__ = self.__generate_bins__()
-    
-    def __generate_bins__(self):
-        bins = np.zeros((self.__nbins__,2))
-        bins[:, 1] = np.linspace(-self.__length__/2., self.__length__/2., self.__nbins__)
-        
-        rot_matrix = np.array([[np.cos(self.__angle__), -np.sin(self.__angle__)],
-                               [np.sin(self.__angle__), np.cos(self.__angle__)]])
-        
-        bins = np.dot(bins, rot_matrix)
-        bins[:, 0] += self.__center__.x
-        bins[:, 1] += self.__center__.y
-        
-        return bins
-        
-def draw_lixels(lixels, draw_normals=True):
-    ax = plt.axes()
-    
-    for lixel in lixels:
-        plt.plot([p.x for p in lixel.points], [p.y for p in lixel.points])
-        
-        if draw_normals:
-            center = lixel.center()
-            normal = lixel.normal()
-            ax.arrow(center.x, center.y, normal.x, normal.y)
-        
-def draw_detector_plane(detector):
-    plt.plot(detector.__bins__[:, 0], detector.__bins__[:, 1], marker='+', ms=10.)
-
-def draw_everything(lixels, detector, source, draw_normals=True):
-    draw_lixels(lixels, draw_normals)
-    draw_detector_plane(detector)
-    plt.scatter(source.x, source.y, c='r')
-    plt.axis('equal')
-    plt.show()
-
-def detector_geometry_distance(geolixels, source, detector):
-    distances = np.zeros(np.size(detector.__bins__, 0) - 1)
-    
-    for i in xrange(len(distances)):
-        lixel_distance_buffer = []
-        bin_edge_0 = Point(detector.__bins__[i, 0], detector.__bins__[i, 1])
-        bin_edge_1 = Point(detector.__bins__[i+1, 0], detector.__bins__[i+1, 1])
-        center = (bin_edge_0 + bin_edge_1) / 2.
-        for lixel in geolixels:
-            intercept = lixel.calc_intercept(source, center)
-            if intercept is not None:
-                distance = np.sqrt((source.x - intercept.x)**2. + (source.y - intercept.y)**2.)
-                sign = (source - intercept).x * lixel.normal().x + \
-                       (source - intercept).y * lixel.normal().y
-                if sign < 0:
-                    distances[i] += distance
-                else:
-                    distances[i] -= distance
-        
-    return distances
-
-def multiple_geometries(geometries, source, detector, detail=50):
-    total_attenuation = None
-    for geo in geometries:
-        geo_pathlength = detector_geometry_distance(geo.Lixelate(detail), source, detector)
-        attenuation = geo.attenuation * geo_pathlength
-        if total_attenuation is None:
-            total_attenuation = attenuation
-        else:
-            total_attenuation += attenuation
-    
-    return total_attenuation
+    def draw(self):
+        # TODO: plot lixels (lines)
+        plt.scatter(self.geometry.mesh.points[:, 0], self.geometry.mesh.points[:, 1])
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
-    # Assembly
-    box = HollowObject(Rectangle(Point(40, 10), Point(70, -10)), 
-                       Rectangle(Point(42,  8), Point(68,  -8)), 0.5)
-    casting = HollowObject(Circle(Point(50, 0), 7), Circle(Point(50, 0), 5), 0.8)
-    small_box_1 = Rectangle(Point(62, 6), Point(66, 2), 0.2)
-    small_box_2 = Rectangle(Point(62, -2), Point(66, -6), 0.4)
+    air = Material(0.0)
+    u235_metal = Material(0.5)
+    poly = Material(0.1)
+    steel = Material(0.3)
     
-    lixels = box.Lixelate()
-    lixels.extend(casting.Lixelate(50))
-    lixels.extend(small_box_1.Lixelate())
-    lixels.extend(small_box_2.Lixelate())
+    box = create_rectangle(10., 10.)
+    circle = create_circle(10.)
     
-    plt.figure()
-
-    n_angles = 1
-    n_bins = 1000
-    sinogram = np.zeros((n_bins, n_angles))    
+    sim = Simulation()
+    sim.geometry.add_solid(Solid(box, steel, air))
+    sim.geometry.add_solid(Solid(circle, poly, air))
+    sim.geometry.flatten()
     
-    for i, angle in enumerate(np.linspace(0, 2. * np.pi, n_angles+1)[:-1]):
-        print i
-        source = Point(50.-np.cos(angle)*50, np.sin(angle)*50.)
-        print source.x, source.y
-        detector = DetectorPlane(Point(np.cos(angle)*50.+50, -np.sin(angle)*50), angle, 100, n_bins+1)
-    
-        plt.figure()
-        draw_everything(lixels, detector, source, False)
-    
-#        plt.figure()
-        distances = detector_geometry_distance(lixels, source, detector)    
-        attenuation = multiple_geometries([box, casting, small_box_1, small_box_2],
-                                          source, detector)
-        sinogram[:, i] = attenuation
-#        plt.plot(attenuation)
+    sim.draw()
