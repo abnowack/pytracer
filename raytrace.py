@@ -144,22 +144,45 @@ class Geometry(object):
         self.inner_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.inner_material] for solid in self.solids])
         self.outer_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.outer_material] for solid in self.solids])
 
-class Detector(object):
-    def __init__:
-        self.center = np.array([0., 0.])
+class DetectorPlane(object):
+    def __init__(self, width, angle=0.):
+        self.center = center
+        self.width = width
+        self.angle = angle
     
-    def Plane(width):
-    
-    def Arc(diameter, degrees):
+    def create_bins(self, nbins=100):
+        bins = np.zeros((nbins, 2), dtype=np.float32)
+        
+        bins[:, 1] = np.linspace(-self.width/2., self.width/2., nbins)
+        rot = angle_matrix(self.angle)
+        bins = np.dot(bins, rot)
+        return bins
+
+class DetectorArc(object):
+    def __init__(self, center, radius, start_angle, end_angle):
+        self.center = center
+        self.radius = radius
+        self.angles = [start_angle, end_angle]
+
+    def create_bins(self, nbins=100):
+        angle_bins = np.linspace(self.angles[0], self.angles[1], nbins) * np.pi / 180.
+        bins = np.zeros((nbins, 2), dtype=np.float32)
+        mean_angle_radian = sum(self.angles) / 2. * np.pi / 180.
+        center_detector = [self.radius * np.cos(mean_angle_radian), 
+                           self.radius * np.sin(mean_angle_radian)]
+        bins[:, 0] = self.radius * np.cos(angle_bins) + self.center[0] - center_detector[0]
+        bins[:, 1] = self.radius * np.sin(angle_bins) + self.center[1] - center_detector[1]
+        return bins
 
 class Simulation(object):
-    def __init__(self, diameter=100., detector=None):
+    def __init__(self, universe_material, diameter=100., detector_width=100., detector='plane'):
+        self.universe_material = universe_material
         self.geometry = Geometry()
-        self.detector = detector
         self.source = np.array([-diameter/2., 0.])
-    
-    def create_source_detector(self, angle):
-        source = np.array([-self.diameter, 0.], dtype=np.float32)
+        if detector == 'plane':
+            self.detector = DetectorPlane([diameter/2., 0.], detector_width)
+        elif detector == 'arc':
+            self.detector = DetectorArc([diameter/2., 0], diameter, detector_width/2., -detector_width/2.)
     
     def attenuation_length(self, start, end):
         if not hasattr(self.geometry, 'mesh'):
@@ -193,6 +216,9 @@ class Simulation(object):
         
         if self.source is not None:
             plt.scatter(self.source[0], self.source[1], color='red', marker='x')
+        
+        detector_bins = self.detector.create_bins()
+        plt.plot(detector_bins[:, 0], detector_bins[:, 1], color='green')
 
         plt.axis('equal')
     
@@ -212,9 +238,10 @@ if __name__ == "__main__":
     small_box_2 = create_rectangle(2., 2.)
     translate_rotate_mesh(small_box_2, [6., -2.])
     
-    translate_rotate_mesh([box, hollow_circle, small_box_1, small_box_2], [20., 10.], angle_matrix(30.))
+#    translate_rotate_mesh([box, hollow_circle, small_box_1, small_box_2], [20., 10.], angle_matrix(30.))
     
-    sim = Simulation()
+    sim = Simulation(air, 100., 10., 'arc')
+    sim.detector.width = 100.
     sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(hollow_circle, poly, air))
     sim.geometry.solids.append(Solid(small_box_1, u235_metal, air))
