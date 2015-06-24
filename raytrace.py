@@ -8,6 +8,8 @@ TODO: Implement Geometry Checking
     - Test if any lixels overlap
     - Cannot have hole in a hole, or solid in a solid
 TODO: Use Bounded Volume Heirarchy to Reduce Lixel Search
+TODO: Account for air attenuation by including outer material
+      Currently will break if need to account for two materials in contact
 """
 import numpy as np
 
@@ -46,6 +48,15 @@ class Mesh(object):
         return Mesh(np.concatenate([self.points, other.points]),
                     np.concatenate([self.lixels, other.lixels + np.size(self.lixels, 0)]))
     
+    def lixel_normal(self, i):
+        lixel = self.lixels[i]
+        
+        points = self.points[lixel]
+        px = points[0, 1] - points[1, 1]
+        py = points[1, 0] - points[0, 0]
+        length = np.sqrt(px**2. + py**2.)
+        return np.array([px / length, py / length], dtype=np.float32)
+    
     def continuous_path_order(self):
         """
         mesh points not neccessarily in order, reorganize points such that
@@ -71,10 +82,16 @@ def create_rectangle(w, h):
     points = np.zeros((4, 2), dtype=np.float32)
     lixels = np.zeros((4, 2), dtype=np.int32)
     
-    points[1, 1], points[2, 1] = h/2., h/2.
-    points[0, 1], points[3, 1] = -h/2., -h/2.
-    points[2, 0], points[3, 0] = w/2., w/2.
-    points[0, 0], points[1, 0] = -w/2., -w/2.
+    points[:, 1] = h/2.
+    points[:, 0] = w/2.
+    points[2, :] *= -1
+    points[1, 0] *= -1
+    points[3, 1] *= -1
+    
+#    points[1, 1], points[2, 1] = h/2., h/2.
+#    points[0, 1], points[3, 1] = -h/2., -h/2.
+#    points[2, 0], points[3, 0] = w/2., w/2.
+#    points[0, 0], points[1, 0] = -w/2., -w/2.
     
     lixels[:, 0] = np.arange(np.size(points, 0))
     lixels[:, 1] = np.roll(lixels[:, 0], 1)
@@ -136,8 +153,12 @@ class Geometry(object):
         n_points = np.cumsum([0] + [np.size(solid.mesh.points, 0) for solid in self.solids])
         n_lixels = np.cumsum([0] + [np.size(solid.mesh.lixels, 0) for solid in self.solids])
         
-        points = [0] + np.zeros((sum(n_points), 2), dtype=np.float32)
-        lixels = [0] + np.zeros((sum(n_lixels), 2), dtype=np.int32)
+        points = [0] + np.zeros((n_points[-1], 2), dtype=np.float32)
+        lixels = [0] + np.zeros((n_lixels[-1], 2), dtype=np.int32)
+        
+        for i, solid in enumerate(self.solids):
+            points[n_points[i]:n_points[i+1]] = solid.mesh.points
+            lixels[n_lixels[i]:n_lixels[i+1]] = solid.mesh.lixels + n_lixels[i]
         
         self.mesh = Mesh(points, lixels)
         self.materials = np.unique(np.concatenate([np.concatenate([solid.inner_material, solid.outer_material]) for solid in self.solids]))
@@ -145,7 +166,7 @@ class Geometry(object):
         self.outer_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.outer_material] for solid in self.solids])
 
 class DetectorPlane(object):
-    def __init__(self, width, angle=0.):
+    def __init__(self, center, width, angle=0.):
         self.center = center
         self.width = width
         self.angle = angle
@@ -156,6 +177,8 @@ class DetectorPlane(object):
         bins[:, 1] = np.linspace(-self.width/2., self.width/2., nbins)
         rot = angle_matrix(self.angle)
         bins = np.dot(bins, rot)
+        bins[:, 0] += self.center[0]
+        bins[:, 1] += self.center[1]
         return bins
 
 class DetectorArc(object):
@@ -185,20 +208,34 @@ class Simulation(object):
             self.detector = DetectorArc([diameter/2., 0], diameter, detector_width/2., -detector_width/2.)
     
     def attenuation_length(self, start, end):
-        if not hasattr(self.geometry, 'mesh'):
-            self.geometry.flatten()
-        intersecting_lixels = []
-        distances = []
+        atten_length = 0.        
         for i, lixel in enumerate(self.geometry.mesh.lixels):
-            intersect = line_segment_intersect(self.geometry.mesh.points(lixel), np.array(start, end))
-            if intersect:
-                intersecting_lixels.append(i)
-                distance = np.norm(intersect - start)
-                distances.append(intersect)
-        sorted_lixels = intersecting_lixels[distances.argsort()]
+            intercept = line_segment_intersect(self.geometry.mesh.points[lixel], np.array([start, end]))
+            if intercept is not None:
+                distance = np.sqrt((start[0] - intercept[0])**2. + (start[1] - intercept[1])**2.)
+                normal = self.geometry.mesh.lixel_normal(i)
+                sign = np.sign(np.dot(start - intercept, normal))
+                inner_material = self.geometry.materials[self.geometry.inner_material_index[i]]
+                outer_material = self.geometry.materials[self.geometry.outer_material_index[i]]
+                atten_length += -sign * distance * inner_material.attenuation
         
-        print sorted_lixels
+        return atten_length
+    
+    def scan(self, angles=[0], nbins=100):
+        atten_length = np.zeros((nbins, len(angles)))
         
+        detector_bins = self.detector.create_bins(nbins)
+        source = self.source
+        
+        for i, angle in enumerate(angles):
+            rot = angle_matrix(angle)
+            rot_source = np.inner(source, rot)
+            rot_detector_bins = np.inner(detector_bins, rot)
+            for j, detector_bin in enumerate(rot_detector_bins):
+                atten_length[j, i] = self.attenuation_length(rot_source, detector_bin)
+        
+        return atten_length
+
     def draw(self):
         for solid in self.geometry.solids:
             lixels, points = solid.mesh.continuous_path_order()
@@ -226,9 +263,9 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
     air = Material(0.0, 'white')
-    u235_metal = Material(0.5, 'green')
-    poly = Material(0.1, 'red')
-    steel = Material(0.3, 'orange')
+    u235_metal = Material(1.0, 'green')
+    poly = Material(1.0, 'red')
+    steel = Material(1.0, 'orange')
     
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
     hollow_circle = create_hollow(create_circle(3.9), create_circle(2.9))
@@ -240,7 +277,7 @@ if __name__ == "__main__":
     
 #    translate_rotate_mesh([box, hollow_circle, small_box_1, small_box_2], [20., 10.], angle_matrix(30.))
     
-    sim = Simulation(air, 100., 10., 'arc')
+    sim = Simulation(air, 50., 45., 'arc')
     sim.detector.width = 100.
     sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(hollow_circle, poly, air))
@@ -249,3 +286,9 @@ if __name__ == "__main__":
     sim.geometry.flatten()
     
     sim.draw()
+    
+    plt.figure()
+    n_angles = 100
+    angles = np.linspace(0., 360., n_angles+1)[:-1]
+    atten = sim.scan(angles)
+    plt.imshow(atten.T)
