@@ -5,6 +5,7 @@ Created on Fri Jun 26 14:03:15 2015
 @author: Aaron
 """
 import numpy as np
+from mesh import angle_matrix
 
 class DetectorPlane(object):
     def __init__(self, center, width, angle=0.):

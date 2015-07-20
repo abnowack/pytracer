@@ -18,6 +18,7 @@ from simulation import Simulation
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.fftpack import fft
 
 air = Material(0.0, 'white')
 u235_metal = Material(1.0, 'green')
@@ -35,18 +36,30 @@ translate_rotate_mesh(small_box_1, [6., 2.])
 small_box_2 = create_rectangle(2., 2.)
 translate_rotate_mesh(small_box_2, [6., -2.])
 
-sim = Simulation(air, 50., 45., 'arc')
-sim.detector.width = 100.
+#sim = Simulation(air, 50., 45., 'arc')
+sim = Simulation(air)
+sim.detector.width = 40.
 sim.geometry.solids.append(Solid(box, steel, air))
 sim.geometry.solids.append(Solid(hollow_circle, poly, air))
 sim.geometry.solids.append(Solid(small_box_1, u235_metal, air))
 sim.geometry.solids.append(Solid(small_box_2, u235_metal, air))
 sim.geometry.flatten()
 
-sim.draw()
+#sim.draw()
+
+#plt.figure()
+n_angles = 100
+angles = np.linspace(0., 180., n_angles+1)[:-1]
+#atten = sim.scan(angles)
+#plt.imshow(atten.T)
 
 plt.figure()
-n_angles = 100
-angles = np.linspace(0., 360., n_angles+1)[:-1]
-atten = sim.scan(angles)
-plt.imshow(atten.T)
+radon = sim.radon_transform(angles)
+plt.imshow(radon.T)
+
+#
+#fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
+#r, theta = np.meshgrid(np.linspace(-1, 1, np.size(radon, 0)), np.radians(angles))
+#cax = ax.contourf(theta, r, radon, 30)
+#cb = fig.colorbar(cax)
+#plt.show()

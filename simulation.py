@@ -56,6 +56,23 @@ class Simulation(object):
                 atten_length[j, i] = self.attenuation_length(rot_source, detector_bin)
         
         return atten_length
+    
+    def radon_transform(self, angles=[0], nbins=100):
+        if type(self.detector) is not DetectorPlane:
+            raise TypeError('self.detector is not DetectorPlane')
+        radon = np.zeros((nbins, len(angles)))
+        
+        detector_bins = self.detector.create_bins(nbins)
+        source_bins = np.inner(detector_bins, angle_matrix(180.))[::-1]
+        
+        for i, angle in enumerate(angles):
+            rot = angle_matrix(angle)
+            rot_source = np.inner(source_bins, rot)
+            rot_detector = np.inner(detector_bins, rot)
+            for j in xrange(len(rot_detector)):
+                radon[j, i] = self.attenuation_length(rot_source[j], rot_detector[j])
+        
+        return radon
 
     def draw(self):
         for solid in self.geometry.solids:
