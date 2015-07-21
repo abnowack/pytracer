@@ -45,17 +45,18 @@ sim.geometry.solids.append(Solid(small_box_1, u235_metal, air))
 sim.geometry.solids.append(Solid(small_box_2, u235_metal, air))
 sim.geometry.flatten()
 
-#sim.draw()
+sim.draw()
+plt.show()
 
 #plt.figure()
 n_angles = 100
 angles = np.linspace(0., 180., n_angles+1)[:-1]
-#atten = sim.scan(angles)
-#plt.imshow(atten.T)
+atten = sim.scan(angles)
+plt.imshow(atten.T)
 
-plt.figure()
-radon = sim.radon_transform(angles)
-plt.imshow(radon.T)
+#plt.figure()
+#radon = sim.radon_transform(angles)
+#plt.imshow(radon.T)
 
 #
 #fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
