@@ -28,7 +28,7 @@ steel = Material(1.0, 'orange')
 box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
 hollow_circle = create_hollow(create_circle(3.9), create_circle(2.9))
-translate_rotate_mesh(hollow_circle, [-9+3.9+0.1, 0.])
+translate_rotate_mesh(hollow_circle, [-9 + 3.9 + 0.1, 0.])
 
 small_box_1 = create_rectangle(2., 2.)
 translate_rotate_mesh(small_box_1, [6., 2.])
@@ -50,7 +50,7 @@ plt.show()
 
 #plt.figure()
 n_angles = 100
-angles = np.linspace(0., 180., n_angles+1)[:-1]
+angles = np.linspace(0., 180., n_angles + 1)[:-1]
 atten = sim.scan(angles)
 plt.imshow(atten.T)
 

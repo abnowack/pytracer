@@ -36,7 +36,7 @@ class Mesh(object):
         points = self.points[lixel]
         px = points[0, 1] - points[1, 1]
         py = points[1, 0] - points[0, 0]
-        length = np.sqrt(px**2. + py**2.)
+        length = np.sqrt(px ** 2. + py ** 2.)
         return np.array([px / length, py / length], dtype=np.float32)
     
     def continuous_path_order(self):
@@ -64,8 +64,8 @@ def create_rectangle(w, h):
     points = np.zeros((4, 2), dtype=np.float32)
     lixels = np.zeros((4, 2), dtype=np.int32)
     
-    points[:, 1] = h/2.
-    points[:, 0] = w/2.
+    points[:, 1] = h / 2.
+    points[:, 0] = w / 2.
     points[2, :] *= -1
     points[1, 0] *= -1
     points[3, 1] *= -1
@@ -84,7 +84,7 @@ def create_circle(radius, n_segments=20):
     points = np.zeros((n_segments, 2), dtype=np.float32)
     lixels = np.zeros((n_segments, 2), dtype=np.int32)
     
-    radians = np.linspace(0., 2 * np.pi, n_segments+1)[:-1]
+    radians = np.linspace(0., 2 * np.pi, n_segments + 1)[:-1]
     points[:, 0] = np.cos(radians) * radius
     points[:, 1] = np.sin(radians) * radius
     

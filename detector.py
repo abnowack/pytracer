@@ -16,7 +16,7 @@ class DetectorPlane(object):
     def create_bins(self, nbins=100):
         bins = np.zeros((nbins, 2), dtype=np.float32)
         
-        bins[:, 1] = np.linspace(-self.width/2., self.width/2., nbins)
+        bins[:, 1] = np.linspace(-self.width / 2., self.width / 2., nbins)
         rot = angle_matrix(self.angle)
         bins = np.dot(bins, rot)
         bins[:, 0] += self.center[0]

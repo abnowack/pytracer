@@ -22,18 +22,18 @@ class Simulation(object):
     def __init__(self, universe_material, diameter=100., detector_width=100., detector='plane'):
         self.universe_material = universe_material
         self.geometry = Geometry()
-        self.source = np.array([-diameter/2., 0.])
+        self.source = np.array([-diameter / 2., 0.])
         if detector == 'plane':
-            self.detector = DetectorPlane([diameter/2., 0.], detector_width)
+            self.detector = DetectorPlane([diameter / 2., 0.], detector_width)
         elif detector == 'arc':
-            self.detector = DetectorArc([diameter/2., 0], diameter, detector_width/2., -detector_width/2.)
+            self.detector = DetectorArc([diameter / 2., 0], diameter, detector_width / 2., -detector_width / 2.)
     
     def attenuation_length(self, start, end):
         atten_length = 0.        
         for i, lixel in enumerate(self.geometry.mesh.lixels):
             intercept = line_segment_intersect(self.geometry.mesh.points[lixel], np.array([start, end]))
             if intercept is not None:
-                distance = np.sqrt((start[0] - intercept[0])**2. + (start[1] - intercept[1])**2.)
+                distance = np.sqrt((start[0] - intercept[0]) ** 2. + (start[1] - intercept[1]) ** 2.)
                 normal = self.geometry.mesh.lixel_normal(i)
                 sign = np.sign(np.dot(start - intercept, normal))
                 inner_material = self.geometry.materials[self.geometry.inner_material_index[i]]

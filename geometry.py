@@ -19,8 +19,8 @@ class Geometry(object):
         lixels = [0] + np.zeros((n_lixels[-1], 2), dtype=np.int32)
         
         for i, solid in enumerate(self.solids):
-            points[n_points[i]:n_points[i+1]] = solid.mesh.points
-            lixels[n_lixels[i]:n_lixels[i+1]] = solid.mesh.lixels + n_lixels[i]
+            points[n_points[i]:n_points[i + 1]] = solid.mesh.points
+            lixels[n_lixels[i]:n_lixels[i + 1]] = solid.mesh.lixels + n_lixels[i]
         
         self.mesh = Mesh(points, lixels)
         self.materials = np.unique(np.concatenate([np.concatenate([solid.inner_material, solid.outer_material]) for solid in self.solids]))
