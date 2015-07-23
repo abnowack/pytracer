@@ -27,7 +27,8 @@ class Simulation(object):
             self.detector = DetectorPlane([diameter / 2., 0.], detector_width)
         elif detector == 'arc':
             self.detector = DetectorArc([diameter / 2., 0], diameter, detector_width / 2., -detector_width / 2.)
-    
+   
+    # TODO : Account for ending within the geometry
     def attenuation_length(self, start, end):
         atten_length = 0.        
         for i, lixel in enumerate(self.geometry.mesh.lixels):
@@ -41,6 +42,35 @@ class Simulation(object):
                 atten_length += -sign * distance * inner_material.attenuation
         
         return atten_length
+
+    # TODO : Account for joined fissionable materials
+    def fission_segments(self, start, end):
+        segment_points = []
+        for i, lixel in enumerate(self.geometry.mesh.lixels):
+            intercept = line_segment_intersect(self.geometry.mesh.points[lixel], np.array([start, end]))
+            if intercept is not None:
+                inner_material = self.geometry.materials[self.geometry.inner_material_index[i]]
+                outer_material = self.geometry.materials[self.geometry.outer_material_index[i]]
+                normal = self.geometry.mesh.lixel_normal(i)
+                sign = np.sign(np.dot(start - intercept, normal))
+                if inner_material.is_fissionable or outer_material.is_fissionable:
+                    segment_points.append([intercept, sign, inner_material.macro_fission, outer_material.macro_fission])
+
+        # calculate segments
+        distances = [np.sqrt((s[0][0] - start[0]) ** 2. + (s[0][1] - start[1]) ** 2.) for s in segment_points]
+        segment_points_order = [index for (distance, index) in sorted(zip(distances, range(len(distances))))]
+        ordered_segment_points = [segment_points[i] for i in segment_points_order]
+        
+        if len(ordered_segment_points) % 2 != 0:
+            raise IndexError
+        
+        # TODO : Fix by accounting for fissionable materials on either side
+        # not correct, but should be okay for simple cases
+        start_point = [ordered_segment_points[i][0] for i in xrange(0, len(ordered_segment_points), 2)]
+        end_point = [ordered_segment_points[i][0] for i in xrange(1, len(ordered_segment_points), 2)]
+        macro_fission = [ordered_segment_points[i][2] for i in xrange(0, len(ordered_segment_points), 2)] 
+
+        return start_point, end_point, macro_fission
     
     def scan(self, angles=[0], nbins=100):
         atten_length = np.zeros((nbins, len(angles)))
@@ -96,3 +126,5 @@ class Simulation(object):
         plt.plot(detector_bins[:, 0], detector_bins[:, 1], color='green')
 
         plt.axis('equal')
+        plt.xlabel('X (cm)')
+        plt.ylabel('Y (cm)')

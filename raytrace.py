@@ -36,11 +36,23 @@ def inverse_radon(radon, thetas):
 
     return reconstruction_image
 
+def plot_macro_fission(sim, start, end):
+    start_points, end_points, macro_fissions = sim.fission_segments(start, end)
+    print start_points
+    print end_points
+    for i in xrange(len(start_points)):
+        start_point = start_points[i]
+        end_point = end_points[i]
+        macro_fission = macro_fissions[i]
+        start_distance = np.sqrt((start_point[0] - start[0]) ** 2 + (start_point[1] - start[1]) ** 2)
+        end_distance = np.sqrt((end_point[0] - start[0]) ** 2 + (end_point[1] - start[1]) ** 2)
+        plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
+
 def main():
-    air = Material(0.0, 'white')
-    u235_metal = Material(1.0, 'green')
-    poly = Material(1.0, 'red')
-    steel = Material(1.0, 'orange')
+    air = Material(0.0, color='white')
+    u235_metal = Material(1.0, 0.5, color='green')
+    poly = Material(0.5, color='red')
+    steel = Material(0.75, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -54,28 +66,38 @@ def main():
     translate_rotate_mesh(small_box_2, [6., -2.])
 
     #sim = Simulation(air, 50., 45., 'arc')
-    sim = Simulation(air)
-    sim.detector.width = 40.
+    sim = Simulation(air, diameter=50.,)
+    sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
-    sim.geometry.solids.append(Solid(hollow_circle, poly, air))
-    sim.geometry.solids.append(Solid(small_box_1, u235_metal, air))
-    sim.geometry.solids.append(Solid(small_box_2, u235_metal, air))
+    sim.geometry.solids.append(Solid(hollow_circle, u235_metal, air))
+    sim.geometry.solids.append(Solid(small_box_1, poly, air))
+    sim.geometry.solids.append(Solid(small_box_2, steel, air))
     sim.geometry.flatten()
 
     plt.figure()
     sim.draw()
 
-    n_angles = 100
-    angles = np.linspace(0. ,180., n_angles + 1)[:-1]
-
-    radon = sim.radon_transform(angles, nbins=200)
-
     plt.figure()
-    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none', aspect='auto')
+    plot_macro_fission(sim, sim.source, sim.source + np.array([100., 0.]))
 
-    plt.figure()
-    recon_image = inverse_radon(radon, angles)
-    plt.imshow(recon_image.T, cmap=plt.cm.Greys_r, interpolation='none')
+    #n_angles = 100
+    #angles = np.linspace(0.  ,180., n_angles + 1)[:-1]
+
+    #radon = sim.radon_transform(angles, nbins=200)
+
+    #plt.figure()
+    #plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
+    #aspect='auto')
+    #plt.xlabel('Angle')
+    #plt.ylabel('Radon Projection')
+
+    #plt.figure()
+    #recon_image = inverse_radon(radon, angles)
+    #extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    #plt.imshow(recon_image.T[:, ::-1], cmap=plt.cm.Greys_r,
+    #interpolation='none', extent=extent * 2)
+    #plt.xlabel('X (cm)')
+    #plt.ylabel('Y (cm)')
 
     plt.show()
 
