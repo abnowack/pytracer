@@ -22,6 +22,7 @@ from scipy.ndimage.interpolation import rotate
 import sys
 
 def inverse_radon(radon, thetas):
+    """Reconstruct using Filtered Back Projection."""
     pad_value = int(2 ** (np.ceil(np.log(2 * np.size(radon, 0)) / np.log(2))))
 
     f = np.fft.fftfreq(pad_value)
@@ -49,10 +50,10 @@ def plot_macro_fission(sim, start, end):
         plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
 
 def main():
-    air = Material(0.0, color='white')
-    u235_metal = Material(1.0, 0.5, color='green')
-    poly = Material(0.5, color='red')
-    steel = Material(0.75, color='orange')
+    air = Material(0.01, color='white')
+    u235_metal = Material(1.0, color='green')
+    poly = Material(1.0, color='red')
+    steel = Material(1.0, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -75,29 +76,31 @@ def main():
     sim.geometry.flatten()
 
     plt.figure()
-    sim.draw()
+    sim.draw(True)
+
+    #plt.figure()
+    #plot_macro_fission(sim, sim.source, sim.source + np.array([100., 0.]))
+
+    n_angles = 100
+    angles = np.linspace(0.  ,180., n_angles + 1)[:-1]
+
+    radon = sim.radon_transform(angles, nbins=200)
 
     plt.figure()
-    plot_macro_fission(sim, sim.source, sim.source + np.array([100., 0.]))
+    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
+    aspect='auto')
+    plt.xlabel('Angle')
+    plt.ylabel('Radon Projection')
+    plt.colorbar()
 
-    #n_angles = 100
-    #angles = np.linspace(0.  ,180., n_angles + 1)[:-1]
-
-    #radon = sim.radon_transform(angles, nbins=200)
-
-    #plt.figure()
-    #plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
-    #aspect='auto')
-    #plt.xlabel('Angle')
-    #plt.ylabel('Radon Projection')
-
-    #plt.figure()
-    #recon_image = inverse_radon(radon, angles)
-    #extent = [-sim.detector.width / 2., sim.detector.width / 2.]
-    #plt.imshow(recon_image.T[:, ::-1], cmap=plt.cm.Greys_r,
-    #interpolation='none', extent=extent * 2)
-    #plt.xlabel('X (cm)')
-    #plt.ylabel('Y (cm)')
+    plt.figure()
+    recon_image = inverse_radon(radon, angles)
+    extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    plt.imshow(recon_image.T[:, ::-1], cmap=plt.cm.Greys_r,
+    interpolation='none', extent=extent * 2)
+    plt.xlabel('X (cm)')
+    plt.ylabel('Y (cm)')
+    plt.colorbar()
 
     plt.show()
 

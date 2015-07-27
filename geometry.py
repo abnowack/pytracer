@@ -29,28 +29,20 @@ class Geometry(object):
 
 
 def line_segment_intersect(line_a, line_b):
-    p = line_a[0]
-    r = line_a[1] - line_a[0]
-    q = line_b[0]
-    s = line_b[1] - line_b[0]
+    p, q = line_a[0], line_b[0]
+    r, s = line_a[1] - line_a[0], line_b[1] - line_b[0]
     
     denom = r[0] * s[1] - r[1] * s[0]
+
+    # colinear or parallel
+    if denom == 0.:
+        return None
+
     u_num = (q - p)[0] * r[1] - (q - p)[1] * r[0]
     t_num = (q - p)[0] * s[1] - (q - p)[1] * s[0]
-    
-    if denom == 0. and u_num == 0.:
-        # colinear
-        return None # TODO: what should this really return?
-    elif denom == 0. and u_num != 0.:
-        # parallel
-        return None
-        
-    t = t_num / denom
-    u = u_num / denom
+    t, u = t_num / denom, u_num / denom
+    intersection = p + t * r
 
+    # contained with both line segments
     if 0 <= t <= 1. and 0 <= u <= 1.:
-        return p + t * r
-    else:
-        # beyond line segment boundary
-        return None
-
+        return intersection
