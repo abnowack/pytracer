@@ -22,18 +22,28 @@ from scipy.ndimage.interpolation import rotate
 import sys
 
 def inverse_radon(radon, thetas):
-    """Reconstruct using Filtered Back Projection."""
+    """
+    Reconstruct using Filtered Back Projection.
+    
+    Weighting assumes thetas are equally spaced
+    radon size must be even
+    """
     pad_value = int(2 ** (np.ceil(np.log(2 * np.size(radon, 0)) / np.log(2))))
+    pre_pad = int((pad_value - len(radon[:, 0])) / 2)
+    post_pad = pad_value - len(radon[:, 0]) - pre_pad
 
     f = np.fft.fftfreq(pad_value)
     ramp_filter = 2. * np.abs(f)
 
     reconstruction_image = np.zeros((np.size(radon, 0), np.size(radon, 0)))
 
+
     for i, theta in enumerate(thetas):
-        filtered = np.real(np.fft.ifft(np.fft.fft(radon[:, i], n=pad_value) * ramp_filter))[:np.size(radon, 0)]
-        back_projection = rotate(np.tile(filtered, (np.size(radon, 0), 1)), theta, reshape=False, mode='nearest')
-        reconstruction_image += back_projection
+        filtered = np.real(np.fft.ifft(np.fft.fft(np.pad(radon[:, i], (pre_pad, post_pad), 'constant', constant_values=(0, 0))) * ramp_filter))[pre_pad:-post_pad]
+        #mask_vals = np.abs(np.sin(theta * np.pi / 180.))
+        back_projection = rotate(np.tile(filtered, (np.size(radon, 0), 1)), theta, reshape=False, mode='constant')
+        reconstruction_image += back_projection * 2 * np.pi / len(thetas)
+
 
     return reconstruction_image
 
@@ -50,7 +60,7 @@ def plot_macro_fission(sim, start, end):
         plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
 
 def main():
-    air = Material(0.01, color='white')
+    air = Material(0.1, color='white')
     u235_metal = Material(1.0, color='green')
     poly = Material(1.0, color='red')
     steel = Material(1.0, color='orange')
@@ -70,7 +80,7 @@ def main():
     sim = Simulation(air, diameter=50.,)
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
-    sim.geometry.solids.append(Solid(hollow_circle, u235_metal, air))
+    sim.geometry.solids.append(Solid(hollow_circle, steel, air))
     sim.geometry.solids.append(Solid(small_box_1, poly, air))
     sim.geometry.solids.append(Solid(small_box_2, steel, air))
     sim.geometry.flatten()
@@ -78,11 +88,13 @@ def main():
     plt.figure()
     sim.draw(True)
 
-    #plt.figure()
+    plt.figure()
     #plot_macro_fission(sim, sim.source, sim.source + np.array([100., 0.]))
 
     n_angles = 100
-    angles = np.linspace(0.  ,180., n_angles + 1)[:-1]
+    angles = np.linspace(0., 180., n_angles + 1)[:-1]
+
+    #plt.plot(sim.radon_transform([0]))
 
     radon = sim.radon_transform(angles, nbins=200)
 
@@ -96,8 +108,7 @@ def main():
     plt.figure()
     recon_image = inverse_radon(radon, angles)
     extent = [-sim.detector.width / 2., sim.detector.width / 2.]
-    plt.imshow(recon_image.T[:, ::-1], cmap=plt.cm.Greys_r,
-    interpolation='none', extent=extent * 2)
+    plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
     plt.xlabel('X (cm)')
     plt.ylabel('Y (cm)')
     plt.colorbar()

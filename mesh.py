@@ -101,4 +101,5 @@ def create_circle(radius, n_segments=20):
 
 def create_hollow(outer_object, inner_object):
     inner_object.points = inner_object.points[::-1]
+
     return outer_object + inner_object

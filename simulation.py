@@ -63,8 +63,9 @@ class Simulation(object):
         atten_length = 0.
         intercepts, indexes = self.get_intersecting_lixels(start, end)
 
-        if len(intercepts) == 0:
-            atten_length += np.linalg.norm(start - end) * self.universe_material.attenuation
+        # replace with attenuation at start point
+        # Must have method for finding start point
+        atten_length += np.linalg.norm(start - end) * self.universe_material.attenuation
 
         for intercept, index in zip(intercepts, indexes):
             normal = self.geometry.mesh.lixel_normal(index)
@@ -74,11 +75,18 @@ class Simulation(object):
             outer_atten = self.geometry.materials[self.geometry.outer_material_index[index]].attenuation
 
             if start_sign > 0:
-                atten_length += np.linalg.norm(start - intercept) * outer_atten
-                atten_length += np.linalg.norm(end - intercept) * inner_atten
+                atten_length += np.linalg.norm(intercept - end) * (inner_atten - outer_atten)
             else:
-                atten_length += np.linalg.norm(end - intercept) * outer_atten
-                atten_length -= np.linalg.norm(end - intercept) * inner_atten
+                atten_length += np.linalg.norm(intercept - end) * (outer_atten - inner_atten)
+
+            #if start_sign > 0:
+            #    atten_length += np.linalg.norm(start - intercept) *
+            #    outer_atten
+            #    atten_length += np.linalg.norm(end - intercept) * inner_atten
+            #if end_sign > 0:
+            #    atten_length += np.linalg.norm(start - intercept) *
+            #    outer_atten
+            #    atten_length -= np.linalg.norm(end - intercept) * inner_atten
         
         return atten_length
 
