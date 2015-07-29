@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 26 14:04:56 2015
-
-@author: Aaron
-"""
 import numpy as np
 
 class Solid(object):

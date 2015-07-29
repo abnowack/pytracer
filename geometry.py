@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 26 13:57:59 2015
-
-@author: Aaron
-"""
 from mesh import Mesh
 import numpy as np
 

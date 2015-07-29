@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 05 11:50:01 2015
-
-@author: Aaron
-
-"""
 from mesh import angle_matrix
 from geometry import Geometry, line_segment_intersect, ray_segment_intersect
 from material import Material

@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 26 14:00:34 2015
-
-@author: Aaron
-"""
 import numpy as np
 
 def angle_matrix(angle, radian=False):

@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 05 11:50:01 2015
-
-@author: Aaron
-
-TODO: Implement Geometry Checking
-    - Test if any lixels overlap
-    - Cannot have hole in a hole, or solid in a solid
-TODO: Use Bounded Volume Heirarchy to Reduce Lixel Search
-TODO: Account for air attenuation by including outer material
-      Currently will break if need to account for two materials in contact
-"""
 from mesh import create_hollow, translate_rotate_mesh, create_rectangle, create_circle, angle_matrix
 from material import Material
 from solid import Solid

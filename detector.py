@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 26 14:03:15 2015
-
-@author: Aaron
-"""
 import numpy as np
 from mesh import angle_matrix
 
