@@ -21,11 +21,11 @@ class Geometry(object):
         self.inner_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.inner_material] for solid in self.solids])
         self.outer_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.outer_material] for solid in self.solids])
 
-    def get_inner_material(index):
+    def get_inner_material(self, index):
         """Return inner material by index."""
         return self.materials[self.inner_material_index[index]]
 
-    def get_outer_material(index):
+    def get_outer_material(self, index):
         """Return outer material by index."""
         return self.materials[self.outer_material_index[index]]
 

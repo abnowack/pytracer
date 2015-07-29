@@ -100,15 +100,17 @@ class Simulation(object):
         # otherwise
         fission_indexes = []
         fission_intercepts = []
-        for index, intercept in izip(indexes, intercepts):
+        for index, intercept in zip(indexes, intercepts):
             # test if lixel is border of fissionable material(s)
             inner_material = self.geometry.get_inner_material(index)
             outer_material = self.geometry.get_outer_material(index)
             if inner_material.is_fissionable or outer_material.is_fissionable:
-                fission_index.append(index)
+                fission_indexes.append(index)
                 fission_intercepts.append(intercept)
 
         # account for no intersections with fissionable materials
+        if len(fission_intercepts) == 0:
+            return segments, cross_sections
 
         # sort fission_indexes and fission_intercepts by distance from start
         distances = np.linalg.norm(np.add(fission_intercepts, -start), axis=1)
@@ -117,7 +119,7 @@ class Simulation(object):
         sorted_fission_indexes = [fission_indexes[i] for i in distance_order]
         sorted_fission_intercepts = [fission_intercepts[i] for i in distance_order]
 
-        for i in xrange(len(sorted_fission_indexes)):
+        for i in xrange(len(sorted_fission_indexes)-1):
             f_ind = sorted_fission_indexes[i]
             f_int = sorted_fission_intercepts[i]
 
@@ -135,7 +137,7 @@ class Simulation(object):
                 elif sign < 0 and inner_material.is_fissionable:
                     segments.append([start, f_int])
                     cross_sections.append(inner_material.macro_fission)
-            elif i == len(sorted_fission_indexes):
+            elif i == len(sorted_fission_indexes)-1:
                 # test if end to last fission lixel is fissionable
                 normal = self.geometry.mesh.lixel_normal(f_ind)
                 sign = np.sign(np.dot(end - f_int, normal))
@@ -149,32 +151,32 @@ class Simulation(object):
                 elif sign < 0 and inner_material.is_fissionable:
                     segments.append([f_int, end])
                     cross_sections.append(inner_material.macro_fission)
+
+            # test all intervening segments
+            normal_1 = self.geometry.mesh.lixel_normal(f_ind)
+            sign_1 = np.sign(np.dot(start - f_int, normal_1))
+
+            f_ind2 = sorted_fission_indexes[i+1]
+            f_int2 = sorted_fission_intercepts[i+1]
+
+            normal_2 = self.geometry.mesh.lixel_normal(f_ind2)
+            sign_2 = np.sign(np.dot(start - f_int2, normal_2))
+
+            if sign_1 > 0:
+                mat_1 = self.geometry.get_inner_material(f_ind)
             else:
-                # test all intervening segments
-                normal_1 = self.geometry.mesh.lixel_normal(f_ind)
-                sign_1 = np.sign(np.dot(start - f_int), normal_1)
+                mat_1 = self.geometry.get_outer_material(f_ind)
 
-                f_ind2 = sorted_fission_indexes[i+1]
-                f_int2 = sorted_fission_intercepts[i+1]
+            if sign_2 < 0:
+                mat_2 = self.geometry.get_inner_material(f_ind)
+            else:
+                mat_2 = self.geometry.get_outer_material(f_ind)
 
-                normal_2 = self.geometry.mesh.lixel_normal(f_ind2)
-                sign_2 = np.sign(np.dot(start - f_int2), normal_2)
-
-                if sign_1 > 0:
-                    mat_1 = self.geometry.get_inner_material(f_ind)
-                else:
-                    mat_1 = self.geometry.get_outer_material(f_ind)
-
-                if sign_2 > 0:
-                    mat_2 = self.geometry.get_inner_material(f_ind)
-                else:
-                    mat_2 = self.geometry.get_outer_material(f_ind)
-
-                if mat_1.is_fissionable and mat_2.is_fissionable:
-                    if mat_1.macro_fission != mat_2.macro_fission:
-                        raise NotImplementedError
-                    segments.append([f_ind1, f_ind2])
-                    cross_sections.append(mat_1.macro_fission)
+            if mat_1.is_fissionable and mat_2.is_fissionable:
+                if mat_1.macro_fission != mat_2.macro_fission:
+                    raise NotImplementedError
+                segments.append([f_int, f_int2])
+                cross_sections.append(mat_1.macro_fission)
 
         return segments, cross_sections
     

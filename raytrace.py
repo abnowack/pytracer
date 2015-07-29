@@ -33,18 +33,6 @@ def inverse_radon(radon, thetas):
 
     return reconstruction_image
 
-def plot_macro_fission(sim, start, end):
-    start_points, end_points, macro_fissions = sim.fission_segments(start, end)
-    print start_points
-    print end_points
-    for i in xrange(len(start_points)):
-        start_point = start_points[i]
-        end_point = end_points[i]
-        macro_fission = macro_fissions[i]
-        start_distance = np.sqrt((start_point[0] - start[0]) ** 2 + (start_point[1] - start[1]) ** 2)
-        end_distance = np.sqrt((end_point[0] - start[0]) ** 2 + (end_point[1] - start[1]) ** 2)
-        plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
-
 def build_shielded_geometry():
     air = Material(0.1, color='white')
     u235_metal = Material(1.0, color='green')
