@@ -27,6 +27,13 @@ class Geometry(object):
         self.inner_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.inner_material] for solid in self.solids])
         self.outer_material_index = np.concatenate([[np.where(self.materials == mat)[0][0] for mat in solid.outer_material] for solid in self.solids])
 
+    def get_inner_material(index):
+        """Return inner material by index."""
+        return self.materials[self.inner_material_index[index]]
+
+    def get_outer_material(index):
+        """Return outer material by index."""
+        return self.materials[self.outer_material_index[index]]
 
 def line_segment_intersect(line_a, line_b):
     epsilon = 1e-15

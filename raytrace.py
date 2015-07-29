@@ -102,50 +102,32 @@ def ray_trace_test_geometry():
     return sim
 
 def main():
-    sim = ray_trace_test_geometry()
+    sim = build_shielded_geometry()
 
     plt.figure()
     sim.draw(True)
 
-    n_angles = 360
-    angles = np.linspace(0., 2 * np.pi, n_angles + 1)[:-1]
+    n_angles = 100
+    angles = np.linspace(0., 180., n_angles + 1)[:-1]
 
-    atten_value = np.zeros_like(angles)
-
-    r = 100.
-
-    for i, angle in enumerate(angles):
-        start = np.array([0., 0.])
-        end = np.array([r * np.cos(angle), r * np.sin(angle)])
-        atten_value[i] = sim.attenuation_length(start, end)
+    radon = sim.radon_transform(angles, nbins=200)
 
     plt.figure()
-    plt.plot(angles, atten_value)
-    plt.ylim(ymin=0)
+    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
+    aspect='auto')
+    plt.xlabel('Angle')
+    plt.ylabel('Radon Projection')
+    plt.colorbar()
+
+    plt.figure()
+    recon_image = inverse_radon(radon, angles)
+    extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
+    plt.xlabel('X (cm)')
+    plt.ylabel('Y (cm)')
+    plt.colorbar()
 
     plt.show()
-
-    #n_angles = 100
-    #angles = np.linspace(0., 180., n_angles + 1)[:-1]
-
-    #radon = sim.radon_transform(angles, nbins=200)
-
-    #plt.figure()
-    #plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
-    #aspect='auto')
-    #plt.xlabel('Angle')
-    #plt.ylabel('Radon Projection')
-    #plt.colorbar()
-
-    #plt.figure()
-    #recon_image = inverse_radon(radon, angles)
-    #extent = [-sim.detector.width / 2., sim.detector.width / 2.]
-    #plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
-    #plt.xlabel('X (cm)')
-    #plt.ylabel('Y (cm)')
-    #plt.colorbar()
-
-    #plt.show()
 
 if __name__ == "__main__":
     sys.exit(int(main() or 0))

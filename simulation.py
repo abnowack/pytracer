@@ -4,12 +4,6 @@ Created on Fri Jun 05 11:50:01 2015
 
 @author: Aaron
 
-TODO: Implement Geometry Checking
-    - Test if any lixels overlap
-    - Cannot have hole in a hole, or solid in a solid
-TODO: Use Bounded Volume Heirarchy to Reduce Lixel Search
-TODO: Account for air attenuation by including outer material
-      Currently will break if need to account for two materials in contact
 """
 from mesh import angle_matrix
 from geometry import Geometry, line_segment_intersect, ray_segment_intersect
@@ -69,10 +63,10 @@ class Simulation(object):
             start_sign = np.sign(np.dot(start - closest_intercept, closest_normal))
 
             if start_sign > 0:
-                outer_atten = self.geometry.materials[self.geometry.outer_material_index[closest_index]].attenuation
+                outer_atten = self.geometry.get_outer_material(closest_index).attenuation
                 atten_length = np.linalg.norm(start - end) * outer_atten
             else:
-                inner_atten = self.geometry.materials[self.geometry.inner_material_index[closest_index]].attenuation
+                inner_atten = self.geometry.get_inner_material(closest_index).attenuation
                 atten_length = np.linalg.norm(start - end) * inner_atten
 
             return atten_length
@@ -85,51 +79,111 @@ class Simulation(object):
         start_sign = np.sign(np.dot(start - closest_intercept, closest_normal))
 
         if start_sign > 0:
-            outer_atten = self.geometry.materials[self.geometry.outer_material_index[closest_index]].attenuation
+            outer_atten = self.geometry.get_outer_material(closest_index).attenuation
             atten_length = np.linalg.norm(start - end) * outer_atten
         else:
-            inner_atten = self.geometry.materials[self.geometry.inner_material_index[closest_index]].attenuation
+            inner_atten = self.geometry.get_inner_material(closest_index).attenuation
             atten_length = np.linalg.norm(start - end) * inner_atten
 
         for intercept, index in zip(intercepts, indexes):
             normal = self.geometry.mesh.lixel_normal(index)
             start_sign = np.sign(np.dot(start - intercept, normal))
             end_sign = np.sign(np.dot(end - intercept, normal))
-            inner_atten = self.geometry.materials[self.geometry.inner_material_index[index]].attenuation
-            outer_atten = self.geometry.materials[self.geometry.outer_material_index[index]].attenuation
+            inner_atten = self.geometry.get_inner_material(index).attenuation
+            outer_atten = self.geometry.get_outer_material(index).attenuation
 
             atten_length += start_sign * np.linalg.norm(intercept - end) * (inner_atten - outer_atten)
         
         return atten_length
 
-    # TODO : Account for joined fissionable materials
     def fission_segments(self, start, end):
-        segment_points = []
-        for i, lixel in enumerate(self.geometry.mesh.lixels):
-            intercept = line_segment_intersect(self.geometry.mesh.points[lixel], np.array([start, end]))
-            if intercept is not None:
-                inner_material = self.geometry.materials[self.geometry.inner_material_index[i]]
-                outer_material = self.geometry.materials[self.geometry.outer_material_index[i]]
-                normal = self.geometry.mesh.lixel_normal(i)
-                sign = np.sign(np.dot(start - intercept, normal))
-                if inner_material.is_fissionable or outer_material.is_fissionable:
-                    segment_points.append([intercept, sign, inner_material.macro_fission, outer_material.macro_fission])
+        """
+        Return list of line segments where fissions may occur.
+        """
+        segments, cross_sections = [], []
 
-        # calculate segments
-        distances = [np.sqrt((s[0][0] - start[0]) ** 2. + (s[0][1] - start[1]) ** 2.) for s in segment_points]
-        segment_points_order = [index for (distance, index) in sorted(zip(distances, range(len(distances))))]
-        ordered_segment_points = [segment_points[i] for i in segment_points_order]
-        
-        if len(ordered_segment_points) % 2 != 0:
-            raise IndexError
-        
-        # TODO : Fix by accounting for fissionable materials on either side
-        # not correct, but should be okay for simple cases
-        start_point = [ordered_segment_points[i][0] for i in xrange(0, len(ordered_segment_points), 2)]
-        end_point = [ordered_segment_points[i][0] for i in xrange(1, len(ordered_segment_points), 2)]
-        macro_fission = [ordered_segment_points[i][2] for i in xrange(0, len(ordered_segment_points), 2)] 
+        intercepts, indexes = self.get_intersecting_lixels(start, end)
 
-        return start_point, end_point, macro_fission
+        # otherwise
+        fission_indexes = []
+        fission_intercepts = []
+        for index, intercept in izip(indexes, intercepts):
+            # test if lixel is border of fissionable material(s)
+            inner_material = self.geometry.get_inner_material(index)
+            outer_material = self.geometry.get_outer_material(index)
+            if inner_material.is_fissionable or outer_material.is_fissionable:
+                fission_index.append(index)
+                fission_intercepts.append(intercept)
+
+        # account for no intersections with fissionable materials
+
+        # sort fission_indexes and fission_intercepts by distance from start
+        distances = np.linalg.norm(np.add(fission_intercepts, -start), axis=1)
+        distance_order = [index_ for (distance_, index_) in sorted(zip(distances, range(len(distances))))]
+
+        sorted_fission_indexes = [fission_indexes[i] for i in distance_order]
+        sorted_fission_intercepts = [fission_intercepts[i] for i in distance_order]
+
+        for i in xrange(len(sorted_fission_indexes)):
+            f_ind = sorted_fission_indexes[i]
+            f_int = sorted_fission_intercepts[i]
+
+            if i == 0:
+                # test if start to first fission lixel is fissionable
+                normal = self.geometry.mesh.lixel_normal(f_ind)
+                sign = np.sign(np.dot(start - f_int, normal))
+
+                inner_material = self.geometry.get_inner_material(f_ind)
+                outer_material = self.geometry.get_outer_material(f_ind)
+
+                if sign > 0 and outer_material.is_fissionable:
+                    segments.append([start, f_int])
+                    cross_sections.append(outer_material.macro_fission)
+                elif sign < 0 and inner_material.is_fissionable:
+                    segments.append([start, f_int])
+                    cross_sections.append(inner_material.macro_fission)
+            elif i == len(sorted_fission_indexes):
+                # test if end to last fission lixel is fissionable
+                normal = self.geometry.mesh.lixel_normal(f_ind)
+                sign = np.sign(np.dot(end - f_int, normal))
+
+                inner_material = self.geometry.get_inner_material(f_ind)
+                outer_material = self.geometry.get_outer_material(f_ind)
+
+                if sign > 0 and outer_material.is_fissionable:
+                    segments.append([f_int, end])
+                    cross_sections.append(outer_material.macro_fission)
+                elif sign < 0 and inner_material.is_fissionable:
+                    segments.append([f_int, end])
+                    cross_sections.append(inner_material.macro_fission)
+            else:
+                # test all intervening segments
+                normal_1 = self.geometry.mesh.lixel_normal(f_ind)
+                sign_1 = np.sign(np.dot(start - f_int), normal_1)
+
+                f_ind2 = sorted_fission_indexes[i+1]
+                f_int2 = sorted_fission_intercepts[i+1]
+
+                normal_2 = self.geometry.mesh.lixel_normal(f_ind2)
+                sign_2 = np.sign(np.dot(start - f_int2), normal_2)
+
+                if sign_1 > 0:
+                    mat_1 = self.geometry.get_inner_material(f_ind)
+                else:
+                    mat_1 = self.geometry.get_outer_material(f_ind)
+
+                if sign_2 > 0:
+                    mat_2 = self.geometry.get_inner_material(f_ind)
+                else:
+                    mat_2 = self.geometry.get_outer_material(f_ind)
+
+                if mat_1.is_fissionable and mat_2.is_fissionable:
+                    if mat_1.macro_fission != mat_2.macro_fission:
+                        raise NotImplementedError
+                    segments.append([f_ind1, f_ind2])
+                    cross_sections.append(mat_1.macro_fission)
+
+        return segments, cross_sections
     
     def scan(self, angles=[0], nbins=100):
         atten_length = np.zeros((nbins, len(angles)))
