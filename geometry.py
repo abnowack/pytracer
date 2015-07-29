@@ -44,7 +44,7 @@ def line_segment_intersect(line_a, line_b):
     intersection = p + t * r
 
     # contained with both line segments
-    if 0 <= t < 1. and 0 <= u < 1.:
+    if 0. < t <= 1. and 0. < u <= 1.:
         return intersection
 
 def ray_segment_intersect(ray_a, line_b):
@@ -62,5 +62,5 @@ def ray_segment_intersect(ray_a, line_b):
     t, u = t_num / denom, u_num / denom
     intersection = p + t * r
 
-    if 0 <= t < 1.:
+    if 0. < u <= 1.:
         return intersection

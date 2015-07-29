@@ -100,6 +100,7 @@ def create_circle(radius, n_segments=20):
     return Mesh(points, lixels)
 
 def create_hollow(outer_object, inner_object):
+    """ Must respect outer and inner object argument order. """
     inner_object.points = inner_object.points[::-1]
 
     return outer_object + inner_object

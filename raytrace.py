@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import rotate
 import sys
 
+# TODO : Normalization isn't correct
 def inverse_radon(radon, thetas):
     """
     Reconstruct using Filtered Back Projection.
@@ -40,10 +41,8 @@ def inverse_radon(radon, thetas):
 
     for i, theta in enumerate(thetas):
         filtered = np.real(np.fft.ifft(np.fft.fft(np.pad(radon[:, i], (pre_pad, post_pad), 'constant', constant_values=(0, 0))) * ramp_filter))[pre_pad:-post_pad]
-        #mask_vals = np.abs(np.sin(theta * np.pi / 180.))
         back_projection = rotate(np.tile(filtered, (np.size(radon, 0), 1)), theta, reshape=False, mode='constant')
         reconstruction_image += back_projection * 2 * np.pi / len(thetas)
-
 
     return reconstruction_image
 
@@ -59,7 +58,7 @@ def plot_macro_fission(sim, start, end):
         end_distance = np.sqrt((end_point[0] - start[0]) ** 2 + (end_point[1] - start[1]) ** 2)
         plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
 
-def main():
+def build_shielded_geometry():
     air = Material(0.1, color='white')
     u235_metal = Material(1.0, color='green')
     poly = Material(1.0, color='red')
@@ -85,35 +84,68 @@ def main():
     sim.geometry.solids.append(Solid(small_box_2, steel, air))
     sim.geometry.flatten()
 
+    return sim
+
+def ray_trace_test_geometry():
+    air = Material(0.0, color='white')
+    steel = Material(1.0, color='red')
+
+    box = create_hollow(create_rectangle(12., 12.), create_rectangle(10., 10.))
+    ring = create_hollow(create_circle(15.), create_circle(14.))
+
+    sim = Simulation(air, diameter=50.)
+    sim.detector.width = 30.
+    #sim.geometry.solids.append(Solid(box, steel, air))
+    sim.geometry.solids.append(Solid(ring, steel, air))
+    sim.geometry.flatten()
+
+    return sim
+
+def main():
+    sim = ray_trace_test_geometry()
+
     plt.figure()
     sim.draw(True)
 
-    plt.figure()
-    #plot_macro_fission(sim, sim.source, sim.source + np.array([100., 0.]))
+    n_angles = 360
+    angles = np.linspace(0., 2 * np.pi, n_angles + 1)[:-1]
 
-    n_angles = 100
-    angles = np.linspace(0., 180., n_angles + 1)[:-1]
+    atten_value = np.zeros_like(angles)
 
-    #plt.plot(sim.radon_transform([0]))
+    r = 100.
 
-    radon = sim.radon_transform(angles, nbins=200)
-
-    plt.figure()
-    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
-    aspect='auto')
-    plt.xlabel('Angle')
-    plt.ylabel('Radon Projection')
-    plt.colorbar()
+    for i, angle in enumerate(angles):
+        start = np.array([0., 0.])
+        end = np.array([r * np.cos(angle), r * np.sin(angle)])
+        atten_value[i] = sim.attenuation_length(start, end)
 
     plt.figure()
-    recon_image = inverse_radon(radon, angles)
-    extent = [-sim.detector.width / 2., sim.detector.width / 2.]
-    plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
-    plt.xlabel('X (cm)')
-    plt.ylabel('Y (cm)')
-    plt.colorbar()
+    plt.plot(angles, atten_value)
+    plt.ylim(ymin=0)
 
     plt.show()
+
+    #n_angles = 100
+    #angles = np.linspace(0., 180., n_angles + 1)[:-1]
+
+    #radon = sim.radon_transform(angles, nbins=200)
+
+    #plt.figure()
+    #plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
+    #aspect='auto')
+    #plt.xlabel('Angle')
+    #plt.ylabel('Radon Projection')
+    #plt.colorbar()
+
+    #plt.figure()
+    #recon_image = inverse_radon(radon, angles)
+    #extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    #plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
+    #plt.xlabel('X (cm)')
+    #plt.ylabel('Y (cm)')
+    #plt.colorbar()
+
+    #plt.show()
 
 if __name__ == "__main__":
     sys.exit(int(main() or 0))

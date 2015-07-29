@@ -31,8 +31,6 @@ class Simulation(object):
     def get_intersecting_lixels(self, start, end, ray=False):
         """
         Find intersection points and lixels which intersect ray (start, end).
-
-        Will return intercepts and lixels sorted by path along ray.
         """
         intercepts, indexes = [], []
         segment = np.array([start, end])
@@ -51,7 +49,11 @@ class Simulation(object):
         return intercepts, indexes
    
     def attenuation_length(self, start, end):
-        #atten_length = 0.
+        """
+        Calculate attenuation length for geometry.
+
+        Can account for starting and ending in any position.
+        """
         intercepts, indexes = self.get_intersecting_lixels(start, end)
 
         if len(intercepts) == 0:
@@ -59,7 +61,7 @@ class Simulation(object):
             if len(ray_intercepts) == 0:
                 return np.linalg.norm(start - end) * self.universe_material.attenuation
 
-            distances = np.linalg.norm(np.add(intercepts, -start), axis=1)
+            distances = np.linalg.norm(np.add(ray_intercepts, -start), axis=1)
             distances_argmin = np.argmin(distances)
             closest_index = ray_indexes[distances_argmin]
             closest_intercept = ray_intercepts[distances_argmin]
