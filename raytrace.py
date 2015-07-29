@@ -91,11 +91,11 @@ def ray_trace_test_geometry():
     steel = Material(1.0, color='red')
 
     box = create_hollow(create_rectangle(12., 12.), create_rectangle(10., 10.))
-    ring = create_hollow(create_circle(15.), create_circle(14.))
+    ring = create_hollow(create_circle(12.), create_circle(10.))
+    translate_rotate_mesh(box, rotate = angle_matrix(45.))
 
     sim = Simulation(air, diameter=50.)
     sim.detector.width = 30.
-    #sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(ring, steel, air))
     sim.geometry.flatten()
 

@@ -29,6 +29,7 @@ class Geometry(object):
 
 
 def line_segment_intersect(line_a, line_b):
+    epsilon = 1e-15
     p, q = line_a[0], line_b[0]
     r, s = line_a[1] - line_a[0], line_b[1] - line_b[0]
     
@@ -44,10 +45,12 @@ def line_segment_intersect(line_a, line_b):
     intersection = p + t * r
 
     # contained with both line segments
-    if 0. < t <= 1. and 0. < u <= 1.:
+    # must shift over line segment by epsilon to prevent double overlapping
+    if -epsilon < t < 1.-epsilon and 0. < u <= 1.:
         return intersection
 
 def ray_segment_intersect(ray_a, line_b):
+    epsilon = 1e-15
     p, q = ray_a[0], line_b[0]
     r, s = ray_a[1] - ray_a[0], line_b[1] - line_b[0]
     
@@ -62,5 +65,5 @@ def ray_segment_intersect(ray_a, line_b):
     t, u = t_num / denom, u_num / denom
     intersection = p + t * r
 
-    if 0. < u <= 1.:
+    if -epsilon < t < 1.-epsilon:
         return intersection
