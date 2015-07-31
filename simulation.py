@@ -1,4 +1,4 @@
-from mesh import angle_matrix
+﻿from mesh import angle_matrix
 from geometry import Geometry, line_segment_intersect, ray_segment_intersect
 from material import Material
 from detector import DetectorArc, DetectorPlane
@@ -119,7 +119,7 @@ class Simulation(object):
         sorted_fission_indexes = [fission_indexes[i] for i in distance_order]
         sorted_fission_intercepts = [fission_intercepts[i] for i in distance_order]
 
-        for i in xrange(len(sorted_fission_indexes)-1):
+        for i in xrange(len(sorted_fission_indexes)):
             f_ind = sorted_fission_indexes[i]
             f_int = sorted_fission_intercepts[i]
 
@@ -151,6 +151,7 @@ class Simulation(object):
                 elif sign < 0 and inner_material.is_fissionable:
                     segments.append([f_int, end])
                     cross_sections.append(inner_material.macro_fission)
+                continue
 
             # test all intervening segments
             normal_1 = self.geometry.mesh.lixel_normal(f_ind)

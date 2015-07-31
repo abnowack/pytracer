@@ -1,4 +1,4 @@
-from mesh import create_hollow, translate_rotate_mesh, create_rectangle, create_circle, angle_matrix
+﻿from mesh import create_hollow, translate_rotate_mesh, create_rectangle, create_circle, angle_matrix
 from material import Material
 from solid import Solid
 from simulation import Simulation
@@ -20,8 +20,8 @@ def plot_macro_fission(sim, start, end):
         plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
 
 def build_shielded_geometry():
-    air = Material(0.1, color='white')
-    u235_metal = Material(1.0, 0.1, color='green')
+    air = Material(0.1, 0.1, color='white')
+    u235_metal = Material(1.0, 0.0, color='green')
     poly = Material(1.0, color='red')
     steel = Material(1.0, color='orange')
 
@@ -62,6 +62,15 @@ def ray_trace_test_geometry():
 
     return sim
 
+def propogate_fissions_segment(sim, segment, n=5):
+    point_0, point_1 = segment[0], segment[1]
+    # generate points along fission segment
+    points = [point_0 + (point_1 - point_0) * t for t in np.linspace(0., 1., n)]
+    for point in points:
+        fission_prob = propogate_fissions_point(sim, point)
+
+#def propogate_fissions_point(sim, point):
+
 def main():
     sim = build_shielded_geometry()
 
@@ -69,7 +78,7 @@ def main():
     sim.draw()
 
     angles = np.linspace(-15., 15., 20) * np.pi / 180.
-    r = 100.
+    r = 50.
     start = sim.source
 
     for angle in angles:
