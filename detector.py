@@ -1,11 +1,49 @@
-import numpy as np
+﻿import numpy as np
+import matplotlib.pyplot as plt
 from mesh import angle_matrix
 
-class DetectorPlane(object):
-    def __init__(self, center, width, angle=0.):
+class Detector(object):
+    """ABC which implements set_nbins to update bin sizes, normal vector calculation. Also drawing method"""
+    def set_bins(self, nbins):
+        self.bin_edges = self.create_bins(nbins)
+        self.bin_centers = (self.bin_edges[1:, :] + self.bin_edges[:-1, :]) / 2.
+
+    def create_bins(self, nbins):
+        raise NotImplementedError
+    
+    def normal(self, bin_i):
+        points = self.bin_edges[[bin_i, bin_i+1]]
+        # L[0].y - L[1].y
+        px = points[0, 1] - points[1, 1]
+        # L[1].x - L[0].x
+        py = points[1, 0] - points[0, 0]
+        length = np.sqrt(px ** 2. + py ** 2.)
+        return np.array([px / length, py / length], dtype=np.float32)
+
+    def solid_angle(self, bin_i, point):
+        """Return solid angle in radians."""
+        bin_edges = self.bin_edges[[bin_i, bin_i+1]]
+        a = np.linalg.norm(point - bin_edges[0])
+        b = np.linalg.norm(point - bin_edges[1])
+        c = np.linalg.norm(bin_edges[0] - bin_edges[1])
+        arg = (a**2 + b**2 - c**2) / (2 * a * b)
+        angle = np.arccos(arg)
+        return angle
+
+    def draw(self, normals=False):
+        plt.plot(self.bin_edges[:, 0], self.bin_edges[:, 1])
+        if normals:
+            for bin_i, bin_center in enumerate(self.bin_centers):
+                normal = self.normal(bin_i)
+                plt.arrow(bin_center[0], bin_center[1], normal[0], normal[1], width=0.01)
+
+class DetectorPlane(Detector):
+    def __init__(self, center, width, angle=0., nbins=None):
         self.center = center
         self.width = width
         self.angle = angle
+        if nbins is not None:
+            self.set_bins(nbins)
     
     def create_bins(self, nbins=100):
         bins = np.zeros((nbins, 2), dtype=np.float32)
@@ -17,14 +55,16 @@ class DetectorPlane(object):
         bins[:, 1] += self.center[1]
         return bins
 
-class DetectorArc(object):
-    def __init__(self, center, radius, start_angle, end_angle):
+class DetectorArc(Detector):
+    def __init__(self, center, radius, start_angle, end_angle, nbins=None):
         self.center = center
         self.radius = radius
         self.angles = [start_angle, end_angle]
+        if nbins is not None:
+            self.create_bins(nbins)
 
     def create_bins(self, nbins=100):
-        angle_bins = np.linspace(self.angles[0], self.angles[1], nbins) * np.pi / 180.
+        angle_bins = np.linspace(self.angles[1], self.angles[0], nbins) * np.pi / 180.
         bins = np.zeros((nbins, 2), dtype=np.float32)
         mean_angle_radian = sum(self.angles) / 2. * np.pi / 180.
         center_detector = [self.radius * np.cos(mean_angle_radian), 

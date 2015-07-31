@@ -214,6 +214,7 @@ class Simulation(object):
         return radon
 
     def draw(self, draw_normals=False):
+        # TODO move to have solid implement it's own draw method, which geometry calls
         for solid in self.geometry.solids:
             lixels, points = solid.mesh.continuous_path_order()
             xs = [points[lixels[0, 0]][0]]
@@ -240,8 +241,7 @@ class Simulation(object):
         if self.source is not None:
             plt.scatter(self.source[0], self.source[1], color='red', marker='x')
         
-        detector_bins = self.detector.create_bins()
-        plt.plot(detector_bins[:, 0], detector_bins[:, 1], color='green')
+        self.detector.draw(draw_normals)
 
         plt.axis('equal')
         plt.xlabel('X (cm)')

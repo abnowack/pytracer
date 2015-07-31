@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 
 class Solid(object):
     def __init__(self, mesh, inner_material, outer_material):

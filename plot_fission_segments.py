@@ -20,10 +20,10 @@ def plot_macro_fission(sim, start, end):
         plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
 
 def build_shielded_geometry():
-    air = Material(0.1, 0.1, color='white')
+    air = Material(0.1, color='white')
     u235_metal = Material(1.0, 0.0, color='green')
     poly = Material(1.0, color='red')
-    steel = Material(1.0, color='orange')
+    steel = Material(1.0, 0.1, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -62,14 +62,36 @@ def ray_trace_test_geometry():
 
     return sim
 
-def propogate_fissions_segment(sim, segment, n=5):
+def propogate_fissions_segment(sim, segment, macro_fission, n=5):
     point_0, point_1 = segment[0], segment[1]
     # generate points along fission segment
     points = [point_0 + (point_1 - point_0) * t for t in np.linspace(0., 1., n)]
     for point in points:
-        fission_prob = propogate_fissions_point(sim, point)
+        fission_prob = propogate_fissions_point(sim, point, cross_section)
 
-#def propogate_fissions_point(sim, point):
+def propogate_fissions_point_detector(sim, point, macro_fission):
+    """
+    Calculate probability of induced fission being detected over detector plane.
+
+    nu = 1 for now
+    """
+    detector_bins = sim.detector.create_bins()
+    detector_center = (detector_bins[1:, :] + detector_bins[:-1, :]) / 2.
+    detector_width = np.linalg.norm(detector_bins[:-1] - detector_bins[:1], axis=1)
+    #detector_normal = 
+    probability = np.zeros(np.size(detector_center), 0) # use center point of each detector boundary
+
+    start = sim.source
+
+    prob_atten_to_point = np.exp(-sim.attenuation_length(start, point))
+    prob_fission = macro_fission
+
+    prob_point_to_detector = np.zeros_like(probability)
+    for i, d_center in enumerate(detector_center):
+        prob_point_to_detector[i] = np.exp(-sim.attenuation_length(point, d_center))
+
+    #detector_point_angle = np.dot(detector_center -
+    #solid_angle = np.dot(detector_width, np.cos())
 
 def main():
     sim = build_shielded_geometry()

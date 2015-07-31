@@ -1,4 +1,4 @@
-from mesh import create_hollow, translate_rotate_mesh, create_rectangle, create_circle, angle_matrix
+﻿from mesh import create_hollow, translate_rotate_mesh, create_rectangle, create_circle, angle_matrix
 from material import Material
 from solid import Solid
 from simulation import Simulation
@@ -51,7 +51,7 @@ def build_shielded_geometry():
     translate_rotate_mesh(small_box_2, [6., -2.])
 
     #sim = Simulation(air, 50., 45., 'arc')
-    sim = Simulation(air, diameter=50.,)
+    sim = Simulation(air, diameter=50., detector='arc')
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(hollow_circle, steel, air))
@@ -78,29 +78,30 @@ def ray_trace_test_geometry():
 
 def main():
     sim = build_shielded_geometry()
+    sim.detector.set_bins(100)
 
     plt.figure()
     sim.draw(True)
 
-    n_angles = 100
-    angles = np.linspace(0., 180., n_angles + 1)[:-1]
+    #n_angles = 100
+    #angles = np.linspace(0., 180., n_angles + 1)[:-1]
 
-    radon = sim.radon_transform(angles, nbins=200)
+    #radon = sim.radon_transform(angles, nbins=200)
 
-    plt.figure()
-    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
-    aspect='auto')
-    plt.xlabel('Angle')
-    plt.ylabel('Radon Projection')
-    plt.colorbar()
+    #plt.figure()
+    #plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
+    #aspect='auto')
+    #plt.xlabel('Angle')
+    #plt.ylabel('Radon Projection')
+    #plt.colorbar()
 
-    plt.figure()
-    recon_image = inverse_radon(radon, angles)
-    extent = [-sim.detector.width / 2., sim.detector.width / 2.]
-    plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
-    plt.xlabel('X (cm)')
-    plt.ylabel('Y (cm)')
-    plt.colorbar()
+    #plt.figure()
+    #recon_image = inverse_radon(radon, angles)
+    #extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    #plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
+    #plt.xlabel('X (cm)')
+    #plt.ylabel('Y (cm)')
+    #plt.colorbar()
 
     plt.show()
 
