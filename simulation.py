@@ -214,29 +214,7 @@ class Simulation(object):
         return radon
 
     def draw(self, draw_normals=False):
-        # TODO move to have solid implement it's own draw method, which geometry calls
-        for solid in self.geometry.solids:
-            lixels, points = solid.mesh.continuous_path_order()
-            xs = [points[lixels[0, 0]][0]]
-            ys = [points[lixels[0, 0]][1]]
-            for lixel in lixels:
-                if points[lixel[0]][0] == xs[-1] and points[lixel[0]][1] == ys[-1]:
-                    xs.append(points[lixel[1]][0])
-                    ys.append(points[lixel[1]][1])
-                else:
-                    xs.extend(points[lixel][:, 0])
-                    ys.extend(points[lixel][:, 1])
-
-            plt.fill(xs, ys, color=solid.color)
-
-        if draw_normals:
-            for solid in self.geometry.solids:
-                for i, lixel in enumerate(solid.mesh.lixels):
-                    points = solid.mesh.points[lixel]
-                    centroid_x = (points[0, 0] + points[1, 0]) / 2.
-                    centroid_y = (points[0, 1] + points[1, 1]) / 2.
-                    normal = solid.mesh.lixel_normal(i)
-                    plt.arrow(centroid_x, centroid_y, normal[0], normal[1], width=0.01, fc=solid.color, ec=solid.color)
+        self.geometry.draw(draw_normals)
         
         if self.source is not None:
             plt.scatter(self.source[0], self.source[1], color='red', marker='x')

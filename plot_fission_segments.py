@@ -22,8 +22,8 @@ def plot_macro_fission(sim, start, end):
 def build_shielded_geometry():
     air = Material(0.0, color='white')
     u235_metal = Material(0.2, 0.1, color='green')
-    poly = Material(0.2, color='red')
-    steel = Material(0.2, color='orange')
+    poly = Material(0.3, color='red')
+    steel = Material(0.18, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -36,7 +36,7 @@ def build_shielded_geometry():
     small_box_2 = create_rectangle(2., 2.)
     translate_rotate_mesh(small_box_2, [6., -2.])
 
-    sim = Simulation(air, 50., 45., 'arc')
+    sim = Simulation(air, 50., 30., 'arc')
     #sim = Simulation(air, diameter=50.,)
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
@@ -104,9 +104,9 @@ def main():
     sim.detector.set_bins(100)
 
     plt.figure()
-    sim.draw(False)
+    sim.draw(True)
 
-    angles = np.linspace(-15., 15., 20) * np.pi / 180.
+    angles = np.linspace(-15., 15., 50) * np.pi / 180.
     r = 50.
     start = sim.source
     fission_probs = np.zeros((len(angles), len(sim.detector.bin_centers)))
@@ -126,8 +126,11 @@ def main():
     print np.unravel_index(fission_probs.argmax(), fission_probs.shape)
 
     plt.figure()
-    plt.imshow(fission_probs.T)
+    plt.imshow(fission_probs.T, extent=[-15., 15., -15., 15.])
     plt.colorbar()
+    plt.xlabel('Neutron Angle')
+    plt.ylabel('Detector Bin Angle')
+    plt.title('Single Fission Detection Probability (Arb. Z Scale)')
     #for i in xrange(np.size(fission_probs, 0)):
     #    plt.plot(fission_probs[i, :])
 

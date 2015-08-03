@@ -1,5 +1,6 @@
-from mesh import Mesh
+﻿from mesh import Mesh
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Geometry(object):
     def __init__(self):
@@ -28,6 +29,10 @@ class Geometry(object):
     def get_outer_material(self, index):
         """Return outer material by index."""
         return self.materials[self.outer_material_index[index]]
+
+    def draw(self, draw_normals=False):
+        for solid in self.solids:
+            solid.draw(draw_normals)
 
 def line_segment_intersect(line_a, line_b):
     epsilon = 1e-15
