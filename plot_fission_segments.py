@@ -36,8 +36,8 @@ def build_shielded_geometry():
     small_box_2 = create_rectangle(2., 2.)
     translate_rotate_mesh(small_box_2, [6., -2.])
 
-    #sim = Simulation(air, 50., 45., 'arc')
-    sim = Simulation(air, diameter=50.,)
+    sim = Simulation(air, 50., 45., 'arc')
+    #sim = Simulation(air, diameter=50.,)
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(hollow_circle, u235_metal, air))
@@ -75,41 +75,53 @@ def propogate_fissions_point_detector(sim, point, macro_fission):
 
     nu = 1 for now
     """
-    detector_bins = sim.detector.create_bins()
-    detector_center = (detector_bins[1:, :] + detector_bins[:-1, :]) / 2.
-    detector_width = np.linalg.norm(detector_bins[:-1] - detector_bins[:1], axis=1)
-    #detector_normal = 
-    probability = np.zeros(np.size(detector_center), 0) # use center point of each detector boundary
+    detector_solid_angle = sim.detector.solid_angles(sim.source)
 
-    start = sim.source
+    prob = detector_solid_angle
 
-    prob_atten_to_point = np.exp(-sim.attenuation_length(start, point))
-    prob_fission = macro_fission
+    return prob
 
-    prob_point_to_detector = np.zeros_like(probability)
-    for i, d_center in enumerate(detector_center):
-        prob_point_to_detector[i] = np.exp(-sim.attenuation_length(point, d_center))
+    #detector_bins = sim.detector.create_bins()
+    #detector_center = (detector_bins[1:, :] + detector_bins[:-1, :]) / 2.
+    #detector_width = np.linalg.norm(detector_bins[:-1] - detector_bins[:1],
+    #axis=1)
+    ##detector_normal =
+    #probability = np.zeros(np.size(detector_center), 0) # use center point of
+    #each detector boundary
+
+    #start = sim.source
+
+    #prob_atten_to_point = np.exp(-sim.attenuation_length(start, point))
+    #prob_fission = macro_fission
+
+    #prob_point_to_detector = np.zeros_like(probability)
+    #for i, d_center in enumerate(detector_center):
+    #    prob_point_to_detector[i] = np.exp(-sim.attenuation_length(point,
+    #    d_center))
 
     #detector_point_angle = np.dot(detector_center -
     #solid_angle = np.dot(detector_width, np.cos())
-
 def main():
     sim = build_shielded_geometry()
+    sim.detector.set_bins(100)
 
     plt.figure()
-    sim.draw()
+    sim.draw(True)
 
-    angles = np.linspace(-15., 15., 20) * np.pi / 180.
-    r = 50.
-    start = sim.source
+    plt.figure()
+    plt.plot(propogate_fissions_point_detector(sim, np.array([0., 0.]), 0.0))
 
-    for angle in angles:
-        end = start + np.array([r * np.cos(angle), r * np.sin(angle)])
+    #angles = np.linspace(-15., 15., 20) * np.pi / 180.
+    #r = 50.
+    #start = sim.source
 
-        segments, cross_sections = sim.fission_segments(start, end)
+    #for angle in angles:
+    #    end = start + np.array([r * np.cos(angle), r * np.sin(angle)])
 
-        for segment in segments:
-            plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
+    #    segments, cross_sections = sim.fission_segments(start, end)
+
+    #    for segment in segments:
+    #        plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
 
     plt.show()
 

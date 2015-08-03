@@ -12,7 +12,7 @@ class Detector(object):
         raise NotImplementedError
     
     def normal(self, bin_i):
-        points = self.bin_edges[[bin_i, bin_i+1]]
+        points = self.bin_edges[[bin_i, bin_i + 1]]
         # L[0].y - L[1].y
         px = points[0, 1] - points[1, 1]
         # L[1].x - L[0].x
@@ -22,13 +22,19 @@ class Detector(object):
 
     def solid_angle(self, bin_i, point):
         """Return solid angle in radians."""
-        bin_edges = self.bin_edges[[bin_i, bin_i+1]]
-        a = np.linalg.norm(point - bin_edges[0])
-        b = np.linalg.norm(point - bin_edges[1])
-        c = np.linalg.norm(bin_edges[0] - bin_edges[1])
-        arg = (a**2 + b**2 - c**2) / (2 * a * b)
-        angle = np.arccos(arg)
+        bin_edges = self.bin_edges[[bin_i, bin_i + 1]]
+        X = bin_edges[0] - point
+        Y = bin_edges[1] - point
+        X_Y = X - Y
+        cos_angle = (np.dot(X, X) + np.dot(Y, Y) - np.dot(X - Y, X - Y)) / (2 * np.linalg.norm(X) * np.linalg.norm(Y))
+        angle = np.arccos(cos_angle)
+        if angle > np.pi / 2.:
+            angle = np.pi - angle
         return angle
+
+    def solid_angles(self, point):
+        bin_solid_angles = [self.solid_angle(i, point) for i in xrange(len(self.bin_centers))]
+        return np.array(bin_solid_angles)
 
     def draw(self, normals=False):
         plt.plot(self.bin_edges[:, 0], self.bin_edges[:, 1])
@@ -66,9 +72,12 @@ class DetectorArc(Detector):
     def create_bins(self, nbins=100):
         angle_bins = np.linspace(self.angles[1], self.angles[0], nbins) * np.pi / 180.
         bins = np.zeros((nbins, 2), dtype=np.float32)
-        mean_angle_radian = sum(self.angles) / 2. * np.pi / 180.
-        center_detector = [self.radius * np.cos(mean_angle_radian), 
-                           self.radius * np.sin(mean_angle_radian)]
-        bins[:, 0] = self.radius * np.cos(angle_bins) + self.center[0] - center_detector[0]
-        bins[:, 1] = self.radius * np.sin(angle_bins) + self.center[1] - center_detector[1]
+        bins[:, 0] = self.radius * np.cos(angle_bins) + self.center[0]
+        bins[:, 1] = self.radius * np.sin(angle_bins) + self.center[1]
+
+        #mean_angle_radian = sum(self.angles) / 2. * np.pi / 180.
+        #center_detector = [self.radius * np.cos(mean_angle_radian), 
+        #                   self.radius * np.sin(mean_angle_radian)]
+        #bins[:, 0] = self.radius * np.cos(angle_bins) + self.center[0] - center_detector[0]
+        #bins[:, 1] = self.radius * np.sin(angle_bins) + self.center[1] - center_detector[1]
         return bins

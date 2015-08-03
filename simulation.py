@@ -13,7 +13,7 @@ class Simulation(object):
         if detector == 'plane':
             self.detector = DetectorPlane([diameter / 2., 0.], detector_width)
         elif detector == 'arc':
-            self.detector = DetectorArc([diameter / 2., 0], diameter, detector_width / 2., -detector_width / 2.)
+            self.detector = DetectorArc(self.source, diameter, detector_width / 2., -detector_width / 2.)
 
     def get_intersecting_lixels(self, start, end, ray=False):
         """
