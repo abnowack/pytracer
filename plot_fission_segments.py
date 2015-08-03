@@ -20,10 +20,10 @@ def plot_macro_fission(sim, start, end):
         plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
 
 def build_shielded_geometry():
-    air = Material(0.1, color='white')
-    u235_metal = Material(1.0, 0.0, color='green')
-    poly = Material(1.0, color='red')
-    steel = Material(1.0, 0.1, color='orange')
+    air = Material(0.0, color='white')
+    u235_metal = Material(0.2, 0.1, color='green')
+    poly = Material(0.2, color='red')
+    steel = Material(0.2, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -49,7 +49,7 @@ def build_shielded_geometry():
 
 def ray_trace_test_geometry():
     air = Material(0.0, color='white')
-    steel = Material(1.0, color='red')
+    steel = Material(0.2, color='red')
 
     box = create_hollow(create_rectangle(12., 12.), create_rectangle(10., 10.))
     ring = create_hollow(create_circle(12.), create_circle(10.))
@@ -62,68 +62,77 @@ def ray_trace_test_geometry():
 
     return sim
 
+def propogate_fission_ray(sim, start, end, n):
+    segments, macro_fissions = sim.fission_segments(start, end)
+    segment_probs = []
+    for i in xrange(len(segments)):
+        single_fission_prob = propogate_fissions_segment(sim, segments[i], macro_fissions[i], n)
+        segment_probs.append(single_fission_prob)
+    total_fission_prob = np.sum(segment_probs, axis=0)
+    return total_fission_prob
+
 def propogate_fissions_segment(sim, segment, macro_fission, n=5):
     point_0, point_1 = segment[0], segment[1]
     # generate points along fission segment
-    points = [point_0 + (point_1 - point_0) * t for t in np.linspace(0., 1., n)]
-    for point in points:
-        fission_prob = propogate_fissions_point(sim, point, cross_section)
+    # use trapezoid rule on uniform spacing
+    # int [f(x = [a, b]) dx]  ~= (b - a) / (2 * N) [ f(a) + f(b) +  ] 
+    points = [point_0 + (point_1 - point_0) * t for t in np.linspace(0.01, 0.99, n)] # TODO : error if t = 1
+    values = np.zeros((len(points), len(sim.detector.bin_centers)))
+    integral = np.zeros((len(sim.detector.bin_centers)))
+    #values = np.zeros((len(sim.detector.bin_centers), len(points)))
+    for i in xrange(len(points)):
+        values[i, :] = propogate_fissions_point_detector(sim, points[i], macro_fission)
+    integral[:] = np.linalg.norm(point_1 - point_0) / (n - 1) * (values[0, :] + 2. * np.sum(values[1:-1, :], axis=0) + values[-1, :])
+    return integral 
 
 def propogate_fissions_point_detector(sim, point, macro_fission):
     """
     Calculate probability of induced fission being detected over detector plane.
 
-    nu = 1 for now
+    nu = 1 for now, not using macro_fission
     """
-    detector_solid_angle = sim.detector.solid_angles(sim.source)
+    detector_solid_angle = sim.detector.solid_angles(point) / (2. * np.pi)
+    in_attenuation_length = sim.attenuation_length(sim.source, point)
+    out_attenuation_lengths = np.array([sim.attenuation_length(point, bin_c) for bin_c in sim.detector.bin_centers])
 
-    prob = detector_solid_angle
+    prob = np.exp(-in_attenuation_length) * np.multiply(detector_solid_angle, np.exp(-out_attenuation_lengths))
 
     return prob
 
-    #detector_bins = sim.detector.create_bins()
-    #detector_center = (detector_bins[1:, :] + detector_bins[:-1, :]) / 2.
-    #detector_width = np.linalg.norm(detector_bins[:-1] - detector_bins[:1],
-    #axis=1)
-    ##detector_normal =
-    #probability = np.zeros(np.size(detector_center), 0) # use center point of
-    #each detector boundary
-
-    #start = sim.source
-
-    #prob_atten_to_point = np.exp(-sim.attenuation_length(start, point))
-    #prob_fission = macro_fission
-
-    #prob_point_to_detector = np.zeros_like(probability)
-    #for i, d_center in enumerate(detector_center):
-    #    prob_point_to_detector[i] = np.exp(-sim.attenuation_length(point,
-    #    d_center))
-
-    #detector_point_angle = np.dot(detector_center -
-    #solid_angle = np.dot(detector_width, np.cos())
 def main():
     sim = build_shielded_geometry()
     sim.detector.set_bins(100)
 
     plt.figure()
-    sim.draw(True)
+    sim.draw(False)
+
+    angles = np.linspace(-15., 15., 20) * np.pi / 180.
+    r = 50.
+    start = sim.source
+    fission_probs = np.zeros((len(angles), len(sim.detector.bin_centers)))
+
+    for i, angle in enumerate(angles):
+        print i
+        end = start + np.array([r * np.cos(angle), r * np.sin(angle)])
+
+        segments, cross_sections = sim.fission_segments(start, end)
+
+        for segment in segments:
+            plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
+
+        fission_probs[i, :] = propogate_fission_ray(sim, start, end, n=5)
+
+    print np.max(fission_probs)
+    print np.unravel_index(fission_probs.argmax(), fission_probs.shape)
 
     plt.figure()
-    plt.plot(propogate_fissions_point_detector(sim, np.array([0., 0.]), 0.0))
-
-    #angles = np.linspace(-15., 15., 20) * np.pi / 180.
-    #r = 50.
-    #start = sim.source
-
-    #for angle in angles:
-    #    end = start + np.array([r * np.cos(angle), r * np.sin(angle)])
-
-    #    segments, cross_sections = sim.fission_segments(start, end)
-
-    #    for segment in segments:
-    #        plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
+    plt.imshow(fission_probs.T)
+    plt.colorbar()
+    #for i in xrange(np.size(fission_probs, 0)):
+    #    plt.plot(fission_probs[i, :])
 
     plt.show()
 
 if __name__ == "__main__":
-    sys.exit(int(main() or 0))
+    main()
+    #sys.exit(int(main() or 0))
