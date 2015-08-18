@@ -7,18 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-def plot_macro_fission(sim, start, end):
-    start_points, end_points, macro_fissions = sim.fission_segments(start, end)
-    print start_points
-    print end_points
-    for i in xrange(len(start_points)):
-        start_point = start_points[i]
-        end_point = end_points[i]
-        macro_fission = macro_fissions[i]
-        start_distance = np.sqrt((start_point[0] - start[0]) ** 2 + (start_point[1] - start[1]) ** 2)
-        end_distance = np.sqrt((end_point[0] - start[0]) ** 2 + (end_point[1] - start[1]) ** 2)
-        plt.plot([start_distance, end_distance], [macro_fission, macro_fission])
-
 def build_shielded_geometry():
     air = Material(0.0, color='white')
     u235_metal = Material(0.2, 0.1, color='green')
@@ -79,7 +67,6 @@ def propogate_fissions_segment(sim, segment, macro_fission, n=5):
     points = [point_0 + (point_1 - point_0) * t for t in np.linspace(0.01, 0.99, n)] # TODO : error if t = 1
     values = np.zeros((len(points), len(sim.detector.bin_centers)))
     integral = np.zeros((len(sim.detector.bin_centers)))
-    #values = np.zeros((len(sim.detector.bin_centers), len(points)))
     for i in xrange(len(points)):
         values[i, :] = propogate_fissions_point_detector(sim, points[i], macro_fission)
     integral[:] = np.linalg.norm(point_1 - point_0) / (n - 1) * (values[0, :] + 2. * np.sum(values[1:-1, :], axis=0) + values[-1, :])
@@ -131,11 +118,8 @@ def main():
     plt.xlabel('Neutron Angle')
     plt.ylabel('Detector Bin Angle')
     plt.title('Single Fission Detection Probability (Arb. Z Scale)')
-    #for i in xrange(np.size(fission_probs, 0)):
-    #    plt.plot(fission_probs[i, :])
 
     plt.show()
 
 if __name__ == "__main__":
-    main()
-    #sys.exit(int(main() or 0))
+    sys.exit(int(main() or 0))

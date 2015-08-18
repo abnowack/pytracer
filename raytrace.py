@@ -1,4 +1,4 @@
-﻿from mesh import create_hollow, translate_rotate_mesh, create_rectangle, create_circle, angle_matrix
+﻿from mesh import create_hollow, create_rectangle, create_circle
 from material import Material
 from solid import Solid
 from simulation import Simulation
@@ -42,16 +42,16 @@ def build_shielded_geometry():
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
     hollow_circle = create_hollow(create_circle(3.9), create_circle(2.9))
-    translate_rotate_mesh(hollow_circle, [-9 + 3.9 + 0.1, 0.])
+    hollow_circle.translate([-9 + 3.9 + 0.1, 0.])
 
     small_box_1 = create_rectangle(2., 2.)
-    translate_rotate_mesh(small_box_1, [6., 2.])
+    small_box_1.translate([6., 2.])
 
     small_box_2 = create_rectangle(2., 2.)
-    translate_rotate_mesh(small_box_2, [6., -2.])
+    small_box_2.translate([6., -2.])
 
     #sim = Simulation(air, 50., 45., 'arc')
-    sim = Simulation(air, diameter=50., detector='arc')
+    sim = Simulation(air, 100, diameter=50., detector='arc')
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(hollow_circle, steel, air))
@@ -67,7 +67,7 @@ def ray_trace_test_geometry():
 
     box = create_hollow(create_rectangle(12., 12.), create_rectangle(10., 10.))
     ring = create_hollow(create_circle(12.), create_circle(10.))
-    translate_rotate_mesh(box, rotate = angle_matrix(45.))
+    box.rotate(45.)
 
     sim = Simulation(air, diameter=50.)
     sim.detector.width = 30.
@@ -78,7 +78,6 @@ def ray_trace_test_geometry():
 
 def main():
     sim = build_shielded_geometry()
-    sim.detector.set_bins(100)
 
     plt.figure()
     sim.draw(True)

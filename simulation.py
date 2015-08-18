@@ -1,19 +1,19 @@
-﻿from mesh import angle_matrix
-from geometry import Geometry, line_segment_intersect, ray_segment_intersect
+﻿from geometry import Geometry
 from material import Material
 from detector import DetectorArc, DetectorPlane
+import math2d
 import numpy as np
 import matplotlib.pyplot as plt
 
 class Simulation(object):
-    def __init__(self, universe_material, diameter=100., detector_width=100., detector='plane'):
+    def __init__(self, universe_material, nbins, diameter=100., detector_width=100., detector='plane'):
         self.universe_material = universe_material
         self.geometry = Geometry()
         self.source = np.array([-diameter / 2., 0.])
         if detector == 'plane':
-            self.detector = DetectorPlane([diameter / 2., 0.], detector_width)
+            self.detector = DetectorPlane([diameter / 2., 0.], detector_width, nbins)
         elif detector == 'arc':
-            self.detector = DetectorArc(self.source, diameter, detector_width / 2., -detector_width / 2.)
+            self.detector = DetectorArc(self.source, diameter, detector_width / 2., -detector_width / 2., nbins)
 
     def get_intersecting_lixels(self, start, end, ray=False):
         """
@@ -22,12 +22,7 @@ class Simulation(object):
         intercepts, indexes = [], []
         segment = np.array([start, end])
 
-        if ray:
-            intersect_func = ray_segment_intersect
-        else:
-            intersect_func = line_segment_intersect
-
-        for i, lixel in enumerate(self.geometry.mesh.lixels):
+        for i, lixel in enumerate(self.geometry.mesh):
             intercept = intersect_func(self.geometry.mesh.points[lixel], segment)
             if intercept is not None:
                 intercepts.append(intercept)
