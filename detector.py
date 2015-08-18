@@ -17,14 +17,14 @@ class Detector(object):
                 plt.arrow(center[0], center[1], normal[0], normal[1], width=0.01, color=color)
 
 class DetectorPlane(Detector):
-    def __init__(self, center, width, nbins):
+    def __init__(self, center, width, nbins, angle=0):
         self.center = center
         self.width = width
         self.angle = angle
 
-        self.segments = calculate_segments(nbins)
+        self.segments = self.calculate_segments(nbins)
     
-    def calculate_edges(self, nbins):
+    def calculate_segments(self, nbins):
         points = np.zeros((nbins+1, 2))
         points[:, 1] = np.linspace(-self.width / 2., self.width / 2., nbins+1)
         rot = math2d.angle_matrix(self.angle)

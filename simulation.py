@@ -15,15 +15,15 @@ class Simulation(object):
         elif detector == 'arc':
             self.detector = DetectorArc(self.source, diameter, detector_width / 2., -detector_width / 2., nbins)
 
-    def get_intersecting_lixels(self, start, end, ray=False):
+    def get_intersecting_segments(self, start, end, ray=False):
         """
         Find intersection points and lixels which intersect ray (start, end).
         """
         intercepts, indexes = [], []
-        segment = np.array([start, end])
+        intersect_segment = np.array([start, end])
 
-        for i, lixel in enumerate(self.geometry.mesh):
-            intercept = intersect_func(self.geometry.mesh.points[lixel], segment)
+        for i, segment in enumerate(self.geometry.mesh.segments):
+            intercept = math2d.intersect(segment, intersect_segment, ray)
             if intercept is not None:
                 intercepts.append(intercept)
                 indexes.append(i)
@@ -36,10 +36,10 @@ class Simulation(object):
 
         Can account for starting and ending in any position.
         """
-        intercepts, indexes = self.get_intersecting_lixels(start, end)
+        intercepts, indexes = self.get_intersecting_segments(start, end)
 
         if len(intercepts) == 0:
-            ray_intercepts, ray_indexes = self.get_intersecting_lixels(start, end, ray=True)
+            ray_intercepts, ray_indexes = self.get_intersecting_segments(start, end, ray=True)
             if len(ray_intercepts) == 0:
                 return np.linalg.norm(start - end) * self.universe_material.attenuation
 
@@ -47,14 +47,14 @@ class Simulation(object):
             distances_argmin = np.argmin(distances)
             closest_index = ray_indexes[distances_argmin]
             closest_intercept = ray_intercepts[distances_argmin]
-            closest_normal = self.geometry.mesh.lixel_normal(closest_index)
+            closest_normal = math2d.normal(self.geometry.mesh.segments[closest_index])
             start_sign = np.sign(np.dot(start - closest_intercept, closest_normal))
 
             if start_sign > 0:
-                outer_atten = self.geometry.get_outer_material(closest_index).attenuation
+                outer_atten = self.geometry.outer_materials[closest_index].attenuation
                 atten_length = np.linalg.norm(start - end) * outer_atten
             else:
-                inner_atten = self.geometry.get_inner_material(closest_index).attenuation
+                inner_atten = self.geometry.inner_materials[closest_index].attenuation
                 atten_length = np.linalg.norm(start - end) * inner_atten
 
             return atten_length
@@ -63,22 +63,22 @@ class Simulation(object):
         distances_argmin = np.argmin(distances)
         closest_index = indexes[distances_argmin]
         closest_intercept = intercepts[distances_argmin]
-        closest_normal = self.geometry.mesh.lixel_normal(closest_index)
+        closest_normal = math2d.normal(self.geometry.mesh.segments[closest_index])
         start_sign = np.sign(np.dot(start - closest_intercept, closest_normal))
 
         if start_sign > 0:
-            outer_atten = self.geometry.get_outer_material(closest_index).attenuation
+            outer_atten = self.geometry.outer_materials[closest_index].attenuation
             atten_length = np.linalg.norm(start - end) * outer_atten
         else:
-            inner_atten = self.geometry.get_inner_material(closest_index).attenuation
+            inner_atten = self.geometry.inner_materials[closest_index].attenuation
             atten_length = np.linalg.norm(start - end) * inner_atten
 
         for intercept, index in zip(intercepts, indexes):
-            normal = self.geometry.mesh.lixel_normal(index)
+            normal =  math2d.normal(self.geometry.mesh.segments[index])
             start_sign = np.sign(np.dot(start - intercept, normal))
             end_sign = np.sign(np.dot(end - intercept, normal))
-            inner_atten = self.geometry.get_inner_material(index).attenuation
-            outer_atten = self.geometry.get_outer_material(index).attenuation
+            inner_atten = self.geometry.inner_materials[index].attenuation
+            outer_atten = self.geometry.outer_materials[index].attenuation
 
             atten_length += start_sign * np.linalg.norm(intercept - end) * (inner_atten - outer_atten)
         
@@ -191,18 +191,21 @@ class Simulation(object):
         
         return atten_length
     
-    def radon_transform(self, angles=[0], nbins=100):
+    def radon_transform(self, angles=[0]):
         if type(self.detector) is not DetectorPlane:
             raise TypeError('self.detector is not DetectorPlane')
-        radon = np.zeros((nbins, len(angles)))
+
+        detector_centers = (self.detector.segments[:, 0, :] + self.detector.segments[:, 1, :]) / 2.
+
+        radon = np.zeros((np.size(detector_centers, 0), len(angles)))
         
-        detector_bins = self.detector.create_bins(nbins)
-        source_bins = np.inner(detector_bins, angle_matrix(180.))[::-1]
+        source_bins = np.inner(detector_centers, math2d.angle_matrix(180.))[::-1]
         
         for i, angle in enumerate(angles):
-            rot = angle_matrix(angle)
+            print i, len(angles)
+            rot = math2d.angle_matrix(angle)
             rot_source = np.inner(source_bins, rot)
-            rot_detector = np.inner(detector_bins, rot)
+            rot_detector = np.inner(detector_centers, rot)
             for j in xrange(len(rot_detector)):
                 radon[j, i] = self.attenuation_length(rot_source[j], rot_detector[j])
         

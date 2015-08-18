@@ -35,9 +35,12 @@ class Mesh(object):
         self.segments[:, :, 0] += shift[0]
         self.segments[:, :, 1] += shift[1]
 
-    def rotate(self, angle, pivot=[0., 0.]):
+    def rotate(self, angle, pivot=[0., 0.], degrees=True):
         self.segments[:, :, 0] -= pivot[0]
         self.segments[:, :, 1] -= pivot[1]
+
+        if degrees:
+            angle = np.deg2rad(angle)
 
         new_xs = self.segments[:, :, 0] * np.cos(angle) - self.segments[:, :, 1] * np.sin(angle)
         new_ys = self.segments[:, :, 0] * np.sin(angle) + self.segments[:, :, 1] * np.cos(angle)

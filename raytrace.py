@@ -25,7 +25,6 @@ def inverse_radon(radon, thetas):
 
     reconstruction_image = np.zeros((np.size(radon, 0), np.size(radon, 0)))
 
-
     for i, theta in enumerate(thetas):
         filtered = np.real(np.fft.ifft(np.fft.fft(np.pad(radon[:, i], (pre_pad, post_pad), 'constant', constant_values=(0, 0))) * ramp_filter))[pre_pad:-post_pad]
         back_projection = rotate(np.tile(filtered, (np.size(radon, 0), 1)), theta, reshape=False, mode='constant')
@@ -51,7 +50,7 @@ def build_shielded_geometry():
     small_box_2.translate([6., -2.])
 
     #sim = Simulation(air, 50., 45., 'arc')
-    sim = Simulation(air, 100, diameter=50., detector='arc')
+    sim = Simulation(air, 100, diameter=50., detector='plane', detector_width=30.)
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
     sim.geometry.solids.append(Solid(hollow_circle, steel, air))
@@ -82,25 +81,26 @@ def main():
     plt.figure()
     sim.draw(True)
 
-    #n_angles = 100
-    #angles = np.linspace(0., 180., n_angles + 1)[:-1]
+    n_angles = 100
+    angles = np.linspace(0., 180., n_angles + 1)[:-1]
 
-    #radon = sim.radon_transform(angles, nbins=200)
+    radon = sim.radon_transform(angles)
 
-    #plt.figure()
-    #plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
-    #aspect='auto')
-    #plt.xlabel('Angle')
-    #plt.ylabel('Radon Projection')
-    #plt.colorbar()
+    plt.figure()
+    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
+    aspect='auto')
+    plt.xlabel('Angle')
+    plt.ylabel('Radon Projection')
+    plt.colorbar()
 
-    #plt.figure()
-    #recon_image = inverse_radon(radon, angles)
-    #extent = [-sim.detector.width / 2., sim.detector.width / 2.]
-    #plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent * 2)
-    #plt.xlabel('X (cm)')
-    #plt.ylabel('Y (cm)')
-    #plt.colorbar()
+    plt.figure()
+    recon_image = inverse_radon(radon, angles)
+    extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    plt.imshow(recon_image.T[:, ::-1], interpolation='none', extent=extent *
+    2)
+    plt.xlabel('X (cm)')
+    plt.ylabel('Y (cm)')
+    plt.colorbar()
 
     plt.show()
 

@@ -14,8 +14,8 @@ class Geometry(object):
                 self.outer_materials = solid.outer_materials
             else:
                 self.mesh += solid.mesh
-                np.append(self.inner_materials, solid.inner_materials)
-                np.append(self.outer_materials, solid.outer_materials)
+                self.inner_materials = np.concatenate((self.inner_materials, solid.inner_materials))
+                self.outer_materials = np.concatenate((self.outer_materials, solid.outer_materials))
 
     def draw(self, draw_normals=False):
         for solid in self.solids:
