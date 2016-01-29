@@ -1,9 +1,23 @@
 ﻿import numpy as np
 import math2d
 
+
 def continuous_path_order(segments):
-    ordered_segments = np.zeros_like(segments)
-    indices = range(np.size(segments, 0))
+    """
+    Reorder segments such that each segment is connected to each other in order
+    [seg_1_2, seg_2_3, seg_3_4, ... seg_n-1_n, seg_n_1]
+
+    Parameters
+    ----------
+    segments : (N, 2, 2) ndarray
+        Array of N segments unordered
+
+    Returns
+    -------
+    out : (N, 2, 2) ndarray
+        Array of original segments reordered in contiguous path order
+
+    """
     new_indices = []
     next_index = 0
 
@@ -19,10 +33,12 @@ def continuous_path_order(segments):
 
     return segments[new_indices]
 
+
 class Mesh(object):
-    """Wrapper around list of points and lixels which refer to points."""
+    """
+    A 2D mesh object, representing a single contiguous geometrical object
+    """
     def __init__(self, segments):
-        """ Segments """
         self.segments = segments
     
     def __add__(self, other):
@@ -32,10 +48,30 @@ class Mesh(object):
         return iter(self.segments)
 
     def translate(self, shift):
+        """
+        Translate the 2D mesh by `shift` amount
+
+        Parameters
+        ----------
+        shift : (2) ndarray
+            [shift_x, shift_y]
+        """
         self.segments[:, :, 0] += shift[0]
         self.segments[:, :, 1] += shift[1]
 
     def rotate(self, angle, pivot=[0., 0.], degrees=True):
+        """
+        Rotate the 2D mesh by `angle` degrees about a point `pivot`
+
+        Parameters
+        ----------
+        angle : float
+            Amount to rotate in degrees (default)
+        pivot : (2) ndarray
+            Point about which to pivot, [pivot_x, pivot_y]
+        degrees : bool
+            Whether angle is in degrees (default) or in radians
+        """
         self.segments[:, :, 0] -= pivot[0]
         self.segments[:, :, 1] -= pivot[1]
 
@@ -48,21 +84,48 @@ class Mesh(object):
         self.segments[:, :, 0] = new_xs - pivot[0]
         self.segments[:, :, 1] = new_ys - pivot[1]
 
-def create_rectangle(w, h):
+
+def create_rectangle(width, height):
+    """
+    Create a rectangular mesh
+
+    Parameters
+    ----------
+    width : float
+    height : float
+
+    Returns
+    -------
+    out : Mesh
+
+    """
     points = np.zeros((5, 2), dtype=np.float32)
 
-    points[0] = [w , h]
-    points[1] = [w, -h]
-    points[2] = [-w, -h]
-    points[3] = [-w, h]
-    points[4] = [w, h]
-    points /= 2.
+    points[0] = [width/2., height/2.]
+    points[1] = [width/2., -height/2.]
+    points[2] = [-width/2., -height/2.]
+    points[3] = [-width/2., height/2.]
+    points[4] = [width/2., height/2.]
     
     segments = math2d.create_segments_from_points(points)
     
     return Mesh(segments)
 
+
 def create_circle(radius, n_segments=20):
+    """
+    Create a circular mesh
+
+    Parameters
+    ----------
+    radius : float
+    n_segments : int
+
+    Returns
+    -------
+    out : Mesh
+
+    """
     points = np.zeros((n_segments + 1, 2), dtype=np.float32)
     
     radians = np.linspace(0., 2 * np.pi, n_segments + 1)[:-1][::-1]
@@ -75,8 +138,21 @@ def create_circle(radius, n_segments=20):
     
     return Mesh(segments)
 
+
 def create_hollow(outer_object, inner_object):
-    """ Must respect outer and inner object argument order. """
+    """
+    Create a combined hollow mesh
+
+    Parameters
+    ----------
+    outer_object, inner_object : Mesh
+
+    Returns
+    -------
+    out : Mesh
+        Combined mesh which is hollow as defined by outer_object and inner_object
+
+    """
     inner_object.segments = np.fliplr(inner_object.segments)[::-1]
 
     return outer_object + inner_object

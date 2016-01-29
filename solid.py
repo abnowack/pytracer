@@ -2,9 +2,11 @@
 import matplotlib.pyplot as plt
 import math2d
 
-from mesh import continuous_path_order
 
 class Solid(object):
+    """
+    Associate mesh objects with material information
+    """
     def __init__(self, mesh, inner_material, outer_material):
         self.mesh = mesh
         self.inner_materials = np.tile(inner_material, np.size(self.mesh.segments, 0))
@@ -12,7 +14,14 @@ class Solid(object):
         self.color = inner_material.color
     
     def draw(self, draw_normals=False):
-        #segments = continuous_path_order(self.mesh.segments)
+        """
+        Display mesh objects as solids on a canvas
+
+        Parameters
+        ----------
+        draw_normals : bool
+            Draw normal vectors to line segments
+        """
         segments = self.mesh.segments
 
         xs = np.ravel(segments[:, :, 0])

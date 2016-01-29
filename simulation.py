@@ -5,8 +5,25 @@ import math2d
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class Simulation(object):
     def __init__(self, universe_material, nbins, diameter=100., detector_width=100., detector='plane'):
+        """
+        Coordinate between Geometry (meshes) and detector plane
+
+        Parameters
+        ----------
+        universe_material : Material
+            Default material, such as vacuum or air
+        nbins : int
+            number of segments for detector
+        diameter : float
+            Diameter of simulation, distance of source to detector plane
+        detector_width : float
+            Width of detector
+        detector : str
+            Type of detector ('arc', 'plane')
+        """
         self.universe_material = universe_material
         self.geometry = Geometry()
         self.source = np.array([-diameter / 2., 0.])
@@ -17,13 +34,31 @@ class Simulation(object):
 
     def get_intersecting_segments(self, start, end, ray=False):
         """
-        Find intersection points and lixels which intersect ray (start, end).
+        Calculate which segments in geometry intersect the line defined by [start, end]
+
+        Parameters
+        ----------
+        start : (2) ndarray
+            Start point of intersect line
+        end : (2) ndarray
+            End point of intersect line
+        ray : bool
+            Indicate whether intersect line is a ray starting from `start`
+
+        Returns
+        -------
+        intercepts : list
+            list of intercept points [point_x, point_y]
+        indexes : list
+            index of intersecting segments in geometry class
+
         """
         intercepts, indexes = [], []
         intersect_segment = np.array([start, end])
 
         for i, segment in enumerate(self.geometry.mesh.segments):
             intercept = math2d.intersect(segment, intersect_segment, ray)
+            math2d.intersect()
             if intercept is not None:
                 intercepts.append(intercept)
                 indexes.append(i)
@@ -32,9 +67,19 @@ class Simulation(object):
    
     def attenuation_length(self, start, end):
         """
-        Calculate attenuation length for geometry.
+        Calculate of attenuation length through geometry from start to end
 
-        Can account for starting and ending in any position.
+        Parameters
+        ----------
+        start : (2) array_like
+            start position
+        end : (2) array_like
+            end positions
+
+        Returns
+        -------
+        atten_length : float
+            calculated attenuation length
         """
         intercepts, indexes = self.get_intersecting_segments(start, end)
 
@@ -74,9 +119,8 @@ class Simulation(object):
             atten_length = np.linalg.norm(start - end) * inner_atten
 
         for intercept, index in zip(intercepts, indexes):
-            normal =  math2d.normal(self.geometry.mesh.segments[index])
+            normal = math2d.normal(self.geometry.mesh.segments[index])
             start_sign = np.sign(np.dot(start - intercept, normal))
-            end_sign = np.sign(np.dot(end - intercept, normal))
             inner_atten = self.geometry.inner_materials[index].attenuation
             outer_atten = self.geometry.outer_materials[index].attenuation
 
@@ -86,7 +130,16 @@ class Simulation(object):
 
     def fission_segments(self, start, end):
         """
-        Return list of line segments where fissions may occur.
+        Return list of line segments which traverse fissionable material
+
+        Parameters
+        ----------
+        start
+        end
+
+        Returns
+        -------
+
         """
         segments, cross_sections = [], []
 

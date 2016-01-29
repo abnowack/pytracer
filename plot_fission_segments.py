@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+
 def build_shielded_geometry():
     air = Material(0.0, color='white')
     u235_metal = Material(0.2, 0.1, color='green')
@@ -35,6 +36,7 @@ def build_shielded_geometry():
 
     return sim
 
+
 def ray_trace_test_geometry():
     air = Material(0.0, color='white')
     steel = Material(0.2, color='red')
@@ -50,6 +52,7 @@ def ray_trace_test_geometry():
 
     return sim
 
+
 def propogate_fission_ray(sim, start, end, n):
     segments, macro_fissions = sim.fission_segments(start, end)
     segment_probs = []
@@ -58,6 +61,7 @@ def propogate_fission_ray(sim, start, end, n):
         segment_probs.append(single_fission_prob)
     total_fission_prob = np.sum(segment_probs, axis=0)
     return total_fission_prob
+
 
 def propogate_fissions_segment(sim, segment, macro_fission, n=5):
     point_0, point_1 = segment[0], segment[1]
@@ -72,6 +76,7 @@ def propogate_fissions_segment(sim, segment, macro_fission, n=5):
     integral[:] = np.linalg.norm(point_1 - point_0) / (n - 1) * (values[0, :] + 2. * np.sum(values[1:-1, :], axis=0) + values[-1, :])
     return integral 
 
+
 def propogate_fissions_point_detector(sim, point, macro_fission):
     """
     Calculate probability of induced fission being detected over detector plane.
@@ -85,6 +90,7 @@ def propogate_fissions_point_detector(sim, point, macro_fission):
     prob = np.exp(-in_attenuation_length) * np.multiply(detector_solid_angle, np.exp(-out_attenuation_lengths))
 
     return prob
+
 
 def main():
     sim = build_shielded_geometry()

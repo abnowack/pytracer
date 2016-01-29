@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import rotate
 import sys
 
+
 # TODO : Normalization isn't correct
 def inverse_radon(radon, thetas):
     """
@@ -31,6 +32,7 @@ def inverse_radon(radon, thetas):
         reconstruction_image += back_projection * 2 * np.pi / len(thetas)
 
     return reconstruction_image
+
 
 def build_shielded_geometry():
     air = Material(0.1, color='white')
@@ -60,6 +62,7 @@ def build_shielded_geometry():
 
     return sim
 
+
 def ray_trace_test_geometry():
     air = Material(0.0, color='white')
     steel = Material(1.0, color='red')
@@ -74,6 +77,7 @@ def ray_trace_test_geometry():
     sim.geometry.flatten()
 
     return sim
+
 
 def main():
     sim = build_shielded_geometry()
