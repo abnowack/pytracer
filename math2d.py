@@ -1,6 +1,31 @@
 import numpy as np
 
 
+def center(segments):
+    """
+    Calculate center (midpoint) of a line segment
+
+    Parameters
+    ----------
+    segment : (2, 2) array_like
+        [[point1_x, point1_y], [point2_x, point2_y]]
+
+    Returns
+    -------
+    seg_center : (2) array_like
+        [center_x, center_y]
+    """
+    if segments.ndim > 2:
+        sp1 = segments[:, 0]
+        sp2 = segments[:, 1]
+    else:
+        sp1 = segments[0]
+        sp2 = segments[1]
+
+    seg_center = (sp1 + sp2) / 2.
+    return seg_center
+
+
 def normal(segment):
     """
     Create a normal vector from a 2d line segment
@@ -23,15 +48,15 @@ def normal(segment):
     return np.array([dx / length, dy / length], dtype=np.float32)
 
 
-def solid_angle(segment, point):
+def solid_angle(segments, point):
     """
     Returns the 2D solid angle of a segment relative to a point
 
     Parameters
     ----------
-    segment : (2, 2) array_like
+    segments : (, 2, 2) ndarray
         [[point1_x, point1_y], [point2_x, point2_y]]
-    point : (2) array_like
+    point : (2) ndarray
         [point_x, point_y]
 
     Returns
@@ -39,14 +64,34 @@ def solid_angle(segment, point):
     angle : float
         2D solid angle
 
+    Notes
+    -----
+    Calculates using law of cosines where the solid angle is defined in terms of the lengths of sides A, B, C
+
+    angle = arccos((A*A + B*B - C*C) / (2 * A * B))
+
+    Where
+    A = |sp1 - point|
+    B = |sp2 - point|
+    C = |sp1 - sp2|
+
     """
-    X = segment[0] - point
-    Y = segment[1] - point
-    X_Y = X - Y
-    cos_angle = (np.dot(X, X) + np.dot(Y, Y) - np.dot(X - Y, X - Y)) / (2 * np.linalg.norm(X) * np.linalg.norm(Y))
-    angle = np.arccos(cos_angle)
-    if angle > np.pi / 2.:
-        angle = np.pi - angle
+    if segments.ndim > 2:
+        sp1 = segments[:, 0]
+        sp2 = segments[:, 1]
+
+    t = sp1 - point
+
+    a = np.linalg.norm(sp1 - point, axis=1)
+    b = np.linalg.norm(sp2 - point, axis=1)
+    c = np.linalg.norm(sp1 - sp2, axis=1)
+
+    num = np.power(a, 2) + np.power(b, 2) - np.power(c, 2)
+    denom = 2 * a * b
+
+    angle = np.arccos(np.abs(num / denom))
+    angle[angle > np.pi / 2.] = np.pi - angle[angle > np.pi / 2.]
+
     return angle
 
 
@@ -85,7 +130,7 @@ def intersect(segment, other_segment, other_is_ray=False):
     # contained with both line segments
     # must shift over line segment by epsilon to prevent double overlapping
     if -epsilon < t < 1. - epsilon:
-        if not ray or 0. < u <= 1.:
+        if not other_is_ray or 0. < u <= 1.:
             return intersection
 
 

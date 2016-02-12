@@ -58,7 +58,6 @@ class Simulation(object):
 
         for i, segment in enumerate(self.geometry.mesh.segments):
             intercept = math2d.intersect(segment, intersect_segment, ray)
-            math2d.intersect()
             if intercept is not None:
                 intercepts.append(intercept)
                 indexes.append(i)
@@ -143,15 +142,15 @@ class Simulation(object):
         """
         segments, cross_sections = [], []
 
-        intercepts, indexes = self.get_intersecting_lixels(start, end)
+        intercepts, indexes = self.get_intersecting_segments(start, end)
 
         # otherwise
         fission_indexes = []
         fission_intercepts = []
         for index, intercept in zip(indexes, intercepts):
             # test if lixel is border of fissionable material(s)
-            inner_material = self.geometry.get_inner_material(index)
-            outer_material = self.geometry.get_outer_material(index)
+            inner_material = self.geometry.inner_materials[index]
+            outer_material = self.geometry.outer_materials[index]
             if inner_material.is_fissionable or outer_material.is_fissionable:
                 fission_indexes.append(index)
                 fission_intercepts.append(intercept)
@@ -173,11 +172,11 @@ class Simulation(object):
 
             if i == 0:
                 # test if start to first fission lixel is fissionable
-                normal = self.geometry.mesh.lixel_normal(f_ind)
+                normal = math2d.normal(self.geometry.mesh.segments[f_ind])
                 sign = np.sign(np.dot(start - f_int, normal))
 
-                inner_material = self.geometry.get_inner_material(f_ind)
-                outer_material = self.geometry.get_outer_material(f_ind)
+                inner_material = self.geometry.inner_materials[f_ind]
+                outer_material = self.geometry.outer_materials[f_ind]
 
                 if sign > 0 and outer_material.is_fissionable:
                     segments.append([start, f_int])
@@ -187,11 +186,11 @@ class Simulation(object):
                     cross_sections.append(inner_material.macro_fission)
             elif i == len(sorted_fission_indexes)-1:
                 # test if end to last fission lixel is fissionable
-                normal = self.geometry.mesh.lixel_normal(f_ind)
+                normal = math2d.normal(self.geometry.mesh.segments[f_ind])
                 sign = np.sign(np.dot(end - f_int, normal))
 
-                inner_material = self.geometry.get_inner_material(f_ind)
-                outer_material = self.geometry.get_outer_material(f_ind)
+                inner_material = self.geometry.inner_materials[f_ind]
+                outer_material = self.geometry.outer_materials[f_ind]
 
                 if sign > 0 and outer_material.is_fissionable:
                     segments.append([f_int, end])
@@ -202,24 +201,24 @@ class Simulation(object):
                 continue
 
             # test all intervening segments
-            normal_1 = self.geometry.mesh.lixel_normal(f_ind)
+            normal_1 = math2d.normal(self.geometry.mesh.segments[f_ind])
             sign_1 = np.sign(np.dot(start - f_int, normal_1))
 
             f_ind2 = sorted_fission_indexes[i+1]
             f_int2 = sorted_fission_intercepts[i+1]
 
-            normal_2 = self.geometry.mesh.lixel_normal(f_ind2)
+            normal_2 = math2d.normal(self.geometry.mesh.segments[f_ind2])
             sign_2 = np.sign(np.dot(start - f_int2, normal_2))
 
             if sign_1 > 0:
-                mat_1 = self.geometry.get_inner_material(f_ind)
+                mat_1 = self.geometry.inner_materials[f_ind]
             else:
-                mat_1 = self.geometry.get_outer_material(f_ind)
+                mat_1 = self.geometry.outer_materials[f_ind]
 
             if sign_2 < 0:
-                mat_2 = self.geometry.get_inner_material(f_ind)
+                mat_2 = self.geometry.inner_materials[f_ind]
             else:
-                mat_2 = self.geometry.get_outer_material(f_ind)
+                mat_2 = self.geometry.outer_materials[f_ind]
 
             if mat_1.is_fissionable and mat_2.is_fissionable:
                 if mat_1.macro_fission != mat_2.macro_fission:
@@ -236,9 +235,9 @@ class Simulation(object):
         source = self.source
         
         for i, angle in enumerate(angles):
-            rot = angle_matrix(angle)
-            rot_source = np.inner(source, rot)
-            rot_detector_bins = np.inner(detector_bins, rot)
+            rot = math2d.angle_matrix(angle)
+            rot_source = np.dot(source, rot)
+            rot_detector_bins = np.dot(detector_bins, rot)
             for j, detector_bin in enumerate(rot_detector_bins):
                 atten_length[j, i] = self.attenuation_length(rot_source, detector_bin)
         
@@ -252,13 +251,12 @@ class Simulation(object):
 
         radon = np.zeros((np.size(detector_centers, 0), len(angles)))
         
-        source_bins = np.inner(detector_centers, math2d.angle_matrix(180.))[::-1]
-        
+        source_bins = np.dot(detector_centers, math2d.angle_matrix(180.))[::-1]
+
         for i, angle in enumerate(angles):
-            print i, len(angles)
             rot = math2d.angle_matrix(angle)
-            rot_source = np.inner(source_bins, rot)
-            rot_detector = np.inner(detector_centers, rot)
+            rot_source = np.dot(source_bins, rot)
+            rot_detector = np.dot(detector_centers, rot)
             for j in xrange(len(rot_detector)):
                 radon[j, i] = self.attenuation_length(rot_source[j], rot_detector[j])
         

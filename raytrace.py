@@ -34,11 +34,11 @@ def inverse_radon(radon, thetas):
     return reconstruction_image
 
 
-def build_shielded_geometry():
-    air = Material(0.1, color='white')
-    u235_metal = Material(1.0, color='green')
-    poly = Material(1.0, color='red')
-    steel = Material(1.0, color='orange')
+def build_shielded_geometry(fission=False):
+    air = Material(0.001, color='white')
+    u235_metal = Material(0.1, 0.1, color='green')
+    poly = Material(0.05, color='red')
+    steel = Material(0.07, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -51,11 +51,14 @@ def build_shielded_geometry():
     small_box_2 = create_rectangle(2., 2.)
     small_box_2.translate([6., -2.])
 
-    #sim = Simulation(air, 50., 45., 'arc')
-    sim = Simulation(air, 100, diameter=50., detector='plane', detector_width=30.)
+    # sim = Simulation(air, 50., 45., 'arc')
+    sim = Simulation(air, 200, diameter=50., detector='plane', detector_width=30.)
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(box, steel, air))
-    sim.geometry.solids.append(Solid(hollow_circle, steel, air))
+    if fission:
+        sim.geometry.solids.append((Solid(hollow_circle, u235_metal, air)))
+    else:
+        sim.geometry.solids.append(Solid(hollow_circle, steel, air))
     sim.geometry.solids.append(Solid(small_box_1, poly, air))
     sim.geometry.solids.append(Solid(small_box_2, steel, air))
     sim.geometry.flatten()
@@ -71,7 +74,7 @@ def ray_trace_test_geometry():
     ring = create_hollow(create_circle(12.), create_circle(10.))
     box.rotate(45.)
 
-    sim = Simulation(air, diameter=50.)
+    sim = Simulation(air, 100, diameter=50.)
     sim.detector.width = 30.
     sim.geometry.solids.append(Solid(ring, steel, air))
     sim.geometry.flatten()
@@ -85,14 +88,18 @@ def main():
     plt.figure()
     sim.draw(True)
 
-    n_angles = 100
+    # plt.figure()
+    # trace = sim.radon_transform(([11.01]))
+    # plt.plot(trace[:, 0])
+    # plt.show()
+
+    n_angles = 200
     angles = np.linspace(0., 180., n_angles + 1)[:-1]
 
-    radon = sim.radon_transform(angles)
+    radon = sim.radon_transform(angles, )
 
     plt.figure()
-    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none',
-    aspect='auto')
+    plt.imshow(radon, cmap=plt.cm.Greys_r, interpolation='none', aspect='auto')
     plt.xlabel('Angle')
     plt.ylabel('Radon Projection')
     plt.colorbar()
