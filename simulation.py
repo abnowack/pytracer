@@ -1,13 +1,17 @@
 ﻿from geometry import Geometry
 from material import Material
 from detector import DetectorArc, DetectorPlane
+from particle_source import Source
 import math2d
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import izip
+
+# TODO: Break out fission prob functions and recon methods
 
 
 class Simulation(object):
-    def __init__(self, universe_material, nbins, diameter=100., detector_width=100., detector='plane'):
+    def __init__(self, universe_material):
         """
         Coordinate between Geometry (meshes) and detector plane
 
@@ -26,11 +30,16 @@ class Simulation(object):
         """
         self.universe_material = universe_material
         self.geometry = Geometry()
-        self.source = np.array([-diameter / 2., 0.])
-        if detector == 'plane':
-            self.detector = DetectorPlane([diameter / 2., 0.], detector_width, nbins)
-        elif detector == 'arc':
-            self.detector = DetectorArc(self.source, diameter, detector_width / 2., -detector_width / 2., nbins)
+        self.source = None
+        self.detector = None
+        self.grid = None
+
+    def add_aligned_source_detector(self, diameter=100., nbins=100, width=100., type='plane'):
+        self.source = Source(-diameter / 2., 0.)
+        if type == 'plane':
+            self.detector = DetectorPlane([diameter / 2., 0.], width, nbins)
+        elif type == 'arc':
+            self.detector = DetectorArc(self.source.pos, diameter, width / 2., -width / 2., nbins)
 
     def get_intersecting_segments(self, start, end, ray=False):
         """
@@ -231,34 +240,34 @@ class Simulation(object):
     def scan(self, angles=[0], nbins=100):
         atten_length = np.zeros((nbins, len(angles)))
         
-        detector_bins = self.detector.create_bins(nbins)
-        source = self.source
+        self.detector.nbins = nbins
+        self.detector.render()
         
         for i, angle in enumerate(angles):
-            rot = math2d.angle_matrix(angle)
-            rot_source = np.dot(source, rot)
-            rot_detector_bins = np.dot(detector_bins, rot)
-            for j, detector_bin in enumerate(rot_detector_bins):
-                atten_length[j, i] = self.attenuation_length(rot_source, detector_bin)
+            self.rotate(angle)
+            detector_centers = math2d.center(self.detector.segments)
+            for j, detector_center in enumerate(detector_centers):
+                atten_length[j, i] = self.attenuation_length(self.source.pos, detector_center)
         
         return atten_length
+
+    def rotate(self, angle):
+        self.detector.rotate(angle)
+        self.source.rotate(angle)
+        self.grid.rotate(angle)
     
     def radon_transform(self, angles=[0]):
         if type(self.detector) is not DetectorPlane:
             raise TypeError('self.detector is not DetectorPlane')
 
-        detector_centers = (self.detector.segments[:, 0, :] + self.detector.segments[:, 1, :]) / 2.
-
-        radon = np.zeros((np.size(detector_centers, 0), len(angles)))
-        
-        source_bins = np.dot(detector_centers, math2d.angle_matrix(180.))[::-1]
+        radon = np.zeros((np.size(self.detector.nbins-1, 0), len(angles)))
 
         for i, angle in enumerate(angles):
-            rot = math2d.angle_matrix(angle)
-            rot_source = np.dot(source_bins, rot)
-            rot_detector = np.dot(detector_centers, rot)
-            for j in xrange(len(rot_detector)):
-                radon[j, i] = self.attenuation_length(rot_source[j], rot_detector[j])
+            self.rotate(angle)
+            detector_points = math2d.center(self.detector.segments)
+            source_points = np.dot(detector_points, math2d.angle_matrix(180.))[::-1]
+            for j, (source_point, detector_point) in enumerate(izip(detector_points, source_points)):
+                radon[j, i] = self.attenuation_length(source_point, detector_point)
         
         return radon
 
@@ -266,9 +275,13 @@ class Simulation(object):
         self.geometry.draw(draw_normals)
         
         if self.source is not None:
-            plt.scatter(self.source[0], self.source[1], color='red', marker='x')
+            plt.scatter(self.source.pos[0], self.source.pos[1], color='red', marker='x')
         
-        self.detector.draw(draw_normals)
+        if self.detector is not None:
+            self.detector.draw(draw_normals)
+
+        if self.grid is not None:
+            self.grid.draw_lines()
 
         plt.axis('equal')
         plt.xlabel('X (cm)')

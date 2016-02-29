@@ -8,22 +8,6 @@ class Detector(object):
     Base Class for drawing detector on display and calculate detector segments
     """
 
-    def calculate_segments(self, nbins):
-        """
-        Create nbin segments from the detector parameters
-
-        Parameters
-        ----------
-        nbins : int
-            Number of linear segments to represent the detector
-
-        Returns
-        -------
-        out : (N, 2, 2) ndarray
-            array of segments
-        """
-        raise NotImplementedError
-
     def draw(self, show_normal=False, color='green'):
         """
         Display detector by plotting the segments on a matplotlib canvas
@@ -59,21 +43,41 @@ class DetectorPlane(Detector):
         angle : float
             Rotation angle of detector with respect to (0, 1) y-axis
         """
-        self.center = center
+        self._center = center
+        self.center = self._center
         self.width = width
-        self.angle = angle
+        self._init_angle = angle
+        self.angle = self._init_angle
+        self._nbins = nbins
+        self.segments = None
 
-        self.segments = self.calculate_segments(nbins)
-    
-    def calculate_segments(self, nbins):
-        points = np.zeros((nbins+1, 2))
-        points[:, 1] = np.linspace(-self.width / 2., self.width / 2., nbins+1)
+        self.render()
+
+    @property
+    def nbins(self):
+        return self._nbins
+
+    @nbins.setter
+    def nbins(self, value):
+        self._nbins = value
+        self.render()
+
+    def render(self):
+        points = np.zeros((self.nbins + 1, 2))
+        points[:, 1] = np.linspace(-self.width / 2., self.width / 2., self.nbins + 1)
         rot = math2d.angle_matrix(self.angle)
         points = np.dot(points, rot)
+
+        self.center = np.dot(self._center, rot)
+
         points[:, 0] += self.center[0]
         points[:, 1] += self.center[1]
 
-        return math2d.create_segments_from_points(points)
+        self.segments = math2d.create_segments_from_points(points)
+
+    def rotate(self, angle):
+        self.angle = angle
+        self.render()
 
 
 class DetectorArc(Detector):
@@ -96,15 +100,33 @@ class DetectorArc(Detector):
         """
         self.center = center
         self.radius = radius
-        self.start_angle = start_angle
-        self.end_angle = end_angle
-        
-        self.segments = self.calculate_segments(nbins)
+        self._init_start_angle = start_angle
+        self._init_end_angle = end_angle
+        self.angle = 0.
+        self.start_angle, self.end_angle = self._init_start_angle, self._init_end_angle
+        self._nbins = nbins
+        self.segments = None
 
-    def calculate_segments(self, nbins):
-        angles = np.linspace(self.end_angle, self.start_angle, nbins + 1) * np.pi / 180.
-        points = np.zeros((nbins+1, 2), dtype=np.float32)
+        self.render()
+
+    @property
+    def nbins(self):
+        return self._nbins
+
+    @nbins.setter
+    def nbins(self, value):
+        self._nbins = value
+        self.render()
+
+    def render(self):
+        angles = np.linspace(self.end_angle, self.start_angle, self.nbins + 1) * np.pi / 180.
+        points = np.zeros((self.nbins + 1, 2), dtype=np.float32)
         points[:, 0] = self.radius * np.cos(angles) + self.center[0]
         points[:, 1] = self.radius * np.sin(angles) + self.center[1]
 
-        return math2d.create_segments_from_points(points)
+        self.segments = math2d.create_segments_from_points(points)
+
+    def rotate(self, angle):
+        self.start_angle = self._init_start_angle + angle
+        self.end_angle = self._init_end_angle + angle
+        self.render()
