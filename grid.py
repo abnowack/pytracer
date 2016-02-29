@@ -5,6 +5,7 @@ import numpy as np
 from raytrace import build_shielded_geometry
 import math2d
 
+
 class Grid(object):
     def __init__(self, width, height, nx, ny, origin=None, angle=0.):
         self.width = width
@@ -95,7 +96,7 @@ def propagate_fissions_point_detector(sim, point):
     nu = 1 for now, not using macro_fission
     """
     detector_solid_angle = math2d.solid_angle(sim.detector.segments, point) / (2. * np.pi) # returns 200,200
-    in_attenuation_length = sim.attenuation_length(sim.source, point)
+    in_attenuation_length = sim.attenuation_length(sim.source.pos, point)
     segment_centers = math2d.center(sim.detector.segments)
     out_attenuation_lengths = np.array([sim.attenuation_length(point, center) for center in segment_centers])
 
@@ -106,28 +107,40 @@ def propagate_fissions_point_detector(sim, point):
 
 def main():
     sim = build_shielded_geometry(True)
-    sim.grid = Grid(20, 20, 10, 10, angle=10.)
-    sim.rotate(90.)
+    sim.grid = Grid(20, 20, 10, 10)
+    sim.rotate(0.)
 
     plt.figure()
     sim.draw(False)
     sim.grid.draw_cell(0)
     sim.grid.draw_raster_samples(0)
 
-    # plt.figure()
+    plt.figure()
 
-    # plt.figure()
-    #
-    # for i in xrange(grid.ncells):
-    #     print i, grid.ncells
+    # Grid in place, plot each cell
+    # for i in xrange(sim.grid.ncells):
+    #     print i, sim.grid.ncells
     #     if i == 0:
-    #         p = grid.cell_prob(i, sim)
-    #         p_matrix = np.zeros((grid.ncells, len(p)))
+    #         p = sim.grid.cell_prob(i, sim)
+    #         p_matrix = np.zeros((sim.grid.ncells, len(p)))
     #         p_matrix[0] = p[:]
     #     else:
-    #         p_matrix[i] = grid.cell_prob(i, sim)
-    #
-    # plt.imshow(p_matrix.T, interpolation='none', aspect='auto')
+    #         p_matrix[i] = sim.grid.cell_prob(i, sim)
+
+    # Cell in place, rotate cell
+    nangles, cell_i = 100, 14
+    angles = np.linspace(0., 180., nangles)
+    for i, angle in enumerate(angles):
+        print i, nangles
+        sim.rotate(angle)
+        if i == 0:
+            p = sim.grid.cell_prob(cell_i, sim)
+            p_matrix = np.zeros((nangles, len(p)))
+            p_matrix[0] = p[:]
+        else:
+            p_matrix[i] = sim.grid.cell_prob(cell_i, sim)
+
+    plt.imshow(p_matrix.T, interpolation='none', aspect='auto')
 
     plt.show()
 

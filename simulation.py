@@ -1,7 +1,7 @@
 ﻿from geometry import Geometry
 from material import Material
 from detector import DetectorArc, DetectorPlane
-from particle_source import Source
+from source import Source
 import math2d
 import numpy as np
 import matplotlib.pyplot as plt
