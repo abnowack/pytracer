@@ -1,9 +1,12 @@
 import sys
+
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
 import numpy as np
-from raytrace import build_shielded_geometry
+from matplotlib.patches import Polygon
+
 import math2d
+from scripts.raytrace import build_shielded_geometry
+
 
 # TODO: Organize file structure layout
 # TODO: Breakout all algorithms into separate files, including fission stuff

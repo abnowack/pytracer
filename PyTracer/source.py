@@ -1,5 +1,6 @@
 import numpy as np
-import math2d
+
+from PyTracer import math2d
 
 
 class Source(object):
