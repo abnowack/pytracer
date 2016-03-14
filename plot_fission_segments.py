@@ -57,7 +57,7 @@ def propagate_fissions_point_detector(sim, point):
     nu = 1 for now, not using macro_fission
     """
     detector_solid_angle = math2d.solid_angle(sim.detector.segments, point) / (2. * np.pi) # returns 200,200
-    in_attenuation_length = sim.attenuation_length(sim.source, point)
+    in_attenuation_length = sim.attenuation_length(sim.source.pos, point)
     segment_centers = math2d.center(sim.detector.segments)
     out_attenuation_lengths = np.array([sim.attenuation_length(point, center) for center in segment_centers])
 
@@ -70,23 +70,27 @@ def main():
     sim = build_shielded_geometry(True)
 
     plt.figure()
-    sim.draw(True)
+
+    sim.rotate(20.)
+    sim.draw()
+
+    print sim.source.angle
+
 
     angles = np.linspace(-15., 15., 50) * np.pi / 180.
     r = 50.
-    start = sim.source
     fission_probs = np.zeros((len(angles), len(sim.detector.segments)))
 
     for i, angle in enumerate(angles):
         print i
-        end = start + np.array([r * np.cos(angle), r * np.sin(angle)])
+        end = sim.source.pos + np.array([r * np.cos(angle - sim.source.angle / 2.), r * np.sin(angle - sim.source.angle / 2.)])
 
-        segments, cross_sections = sim.fission_segments(start, end)
+        segments, cross_sections = sim.fission_segments(sim.source.pos, end)
 
         for segment in segments:
             plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
 
-        fission_probs[i, :] = propagate_fission_ray(sim, start, end, n=5)
+        fission_probs[i, :] = propagate_fission_ray(sim, sim.source.pos, end, n=5)
 
     print np.max(fission_probs)
     print np.unravel_index(fission_probs.argmax(), fission_probs.shape)
