@@ -1,5 +1,24 @@
 import numpy as np
 from scipy.ndimage.interpolation import rotate
+from itertools import izip
+from detector import DetectorPlane
+import math2d
+
+
+def radon(sim, angles):
+    if type(sim.detector) is not DetectorPlane:
+        raise TypeError('self.detector is not DetectorPlane')
+
+    radon = np.zeros((sim.detector.nbins, len(angles)))
+
+    for i, angle in enumerate(angles):
+        sim.rotate(angle)
+        detector_points = math2d.center(sim.detector.segments)
+        source_points = np.dot(detector_points, math2d.angle_matrix(180.))[::-1]
+        for j, (source_point, detector_point) in enumerate(izip(detector_points, source_points)):
+            radon[j, i] = sim.geometry.attenuation_length(source_point, detector_point)
+
+    return radon
 
 
 # TODO : Normalization isn't correct

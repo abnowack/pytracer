@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib.patches import Polygon
 
 import math2d
-from scripts.raytrace import build_shielded_geometry
+from scripts.transmission_test import build_shielded_geometry
 
 
 # TODO: Organize file structure layout
