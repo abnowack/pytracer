@@ -1,6 +1,6 @@
 import numpy as np
 
-from PyTracer import math2d
+from pytracer import math2d
 
 
 class Source(object):
@@ -19,3 +19,13 @@ class Source(object):
     def rotate(self, angle):
         self.angle = angle
         self.render()
+
+    def emit(self, start_angle, end_angle, n):
+        angles = np.linspace(start_angle, end_angle, n)
+        angles *= np.pi / 180.
+
+        end = np.ones((n, 2))
+        end[:, 0] = np.cos(np.pi * self.angle / 180. - angles)
+        end[:, 1] = np.sin(np.pi * self.angle / 180. - angles)
+
+        return end

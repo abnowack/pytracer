@@ -1,7 +1,7 @@
 ﻿import matplotlib.pyplot as plt
 import numpy as np
 
-from PyTracer import math2d
+from pytracer import math2d
 
 
 class Solid(object):

@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib.patches import Polygon
 
 import math2d
-from scripts.transmission_test import build_shielded_geometry
+from mesh import Mesh
 
 
 # TODO: Organize file structure layout
@@ -29,7 +29,7 @@ class Grid(object):
         x = np.linspace(-self.width/2., self.width/2., self.nx+1)
         y = np.linspace(self.height/2., -self.height/2., self.ny+1)
 
-        points = np.zeros((self.nx+1, self.ny+1, 2))
+        points = np.zeros((self.ny+1, self.nx+1, 2))
         points[:, :, 0] = x
         points[:, :, 1] = y[:, np.newaxis]
 
@@ -70,11 +70,11 @@ class Grid(object):
         return self.nx * self.ny
 
     def cell_boundary(self, cell_i):
-        ix, iy = cell_i % self.nx, cell_i / self.ny
-        p1 = self.points[ix, iy]
-        p2 = self.points[ix+1, iy]
-        p3 = self.points[ix+1, iy+1]
-        p4 = self.points[ix, iy+1]
+        ix, iy = cell_i % self.nx, cell_i / self.nx
+        p1 = self.points[iy, ix]
+        p2 = self.points[iy+1, ix]
+        p3 = self.points[iy+1, ix+1]
+        p4 = self.points[iy, ix+1]
         return np.array([p1, p2, p3, p4])
 
     def raster_points(self, i):
@@ -85,6 +85,10 @@ class Grid(object):
 
         return rpoints
 
+    def create_mesh(self, cell_i):
+        points = self.cell_boundary(cell_i)
+        return Mesh(math2d.create_segments_from_points(points))
+
     def cell_prob(self, i, sim):
         rpoints = self.raster_points(i)
         prob1 = propagate_fissions_point_detector(sim, rpoints[0])
@@ -93,6 +97,7 @@ class Grid(object):
         prob4 = propagate_fissions_point_detector(sim, rpoints[3])
 
         return (prob1 + prob2 + prob3 + prob4) / 4.
+
 
 def propagate_fissions_point_detector(sim, point):
     """
@@ -108,46 +113,3 @@ def propagate_fissions_point_detector(sim, point):
     prob = np.exp(-in_attenuation_length) * np.multiply(detector_solid_angle, np.exp(-out_attenuation_lengths))
 
     return prob
-
-
-def main():
-    sim = build_shielded_geometry(True)
-    sim.grid = Grid(20, 20, 10, 10)
-    sim.rotate(10.)
-
-    plt.figure()
-    sim.draw(False)
-    sim.grid.draw_cell(16)
-    sim.grid.draw_raster_samples(0)
-
-    # plt.figure()
-
-    # Grid in place, plot each cell
-    # for i in xrange(sim.grid.ncells):
-    #     print i, sim.grid.ncells
-    #     if i == 0:
-    #         p = sim.grid.cell_prob(i, sim)
-    #         p_matrix = np.zeros((sim.grid.ncells, len(p)))
-    #         p_matrix[0] = p[:]
-    #     else:
-    #         p_matrix[i] = sim.grid.cell_prob(i, sim)
-
-    # Cell in place, rotate cell
-    # nangles, cell_i = 100, 14
-    # angles = np.linspace(0., 180., nangles)
-    # for i, angle in enumerate(angles):
-    #     print i, nangles
-    #     sim.rotate(angle)
-    #     if i == 0:
-    #         p = sim.grid.cell_prob(cell_i, sim)
-    #         p_matrix = np.zeros((nangles, len(p)))
-    #         p_matrix[0] = p[:]
-    #     else:
-    #         p_matrix[i] = sim.grid.cell_prob(cell_i, sim)
-    #
-    # plt.imshow(p_matrix.T, interpolation='none', aspect='auto')
-
-    plt.show()
-
-if __name__ == "__main__":
-    sys.exit(int(main() or 0))

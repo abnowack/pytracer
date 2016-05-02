@@ -3,6 +3,10 @@ from scipy.ndimage.interpolation import rotate
 from itertools import izip
 from detector import DetectorPlane
 import math2d
+from simulation import Simulation
+from material import Material
+from geometry import Geometry
+from solid import Solid
 
 
 def radon(sim, angles):
@@ -44,3 +48,67 @@ def inverse_radon(radon, thetas):
         reconstruction_image += back_projection * 2 * np.pi / len(thetas)
 
     return reconstruction_image
+
+
+def build_transmission_response(sim, angles):
+    """
+    Use grid to define pixel elements
+
+    Parameters
+    ----------
+    sim: Simulation
+    angles
+
+    Returns
+    -------
+
+    """
+
+    if sim.grid is None:
+        raise RuntimeError("Simulation must have a grid defined")
+
+    response = np.zeros((sim.detector.nbins, np.size(angles), sim.grid.ncells))
+
+    unit_material = Material(1.0, 0.0, color='black')
+    vacuum_material = Material(0.0, 0.0, color='white')
+    cell_geo = Geometry(universe_material=vacuum_material)
+
+    for i in xrange(sim.grid.ncells):
+        print i
+        grid_square = sim.grid.create_mesh(i)
+        cell_geo.solids = [Solid(grid_square, unit_material, vacuum_material)]
+        cell_geo.flatten()
+        for j, angle in enumerate(angles):
+            sim.rotate(angle)
+            for k, detector_center in enumerate(math2d.center(sim.detector.segments)):
+                response[k, j, i] = cell_geo.attenuation_length(sim.source.pos, detector_center)
+
+    return response
+
+
+def scan(sim, angles):
+
+    measurement = np.zeros((sim.detector.nbins, np.size(angles)))
+
+    for i, angle in enumerate(angles):
+        sim.rotate(angle)
+        for j, detector_center in enumerate(math2d.center(sim.detector.segments)):
+            measurement[j, i] = sim.geometry.attenuation_length(sim.source.pos, detector_center)
+
+    return measurement
+
+
+def recon_tikhonov(measurement, response, alpha=0.):
+    rr = response.reshape(-1, np.size(response, 2))
+    mm = measurement.reshape((-1))
+    lhs = np.dot(rr.T, rr)
+    rhs = np.dot(rr.T, mm)
+
+    # Apply Tikhonov Regularization with an L2 norm
+    gamma = alpha * np.identity(np.size(lhs, 0))
+    lhs += np.dot(gamma.T, gamma)
+
+    recon = np.linalg.solve(lhs, rhs)
+
+    return recon
+

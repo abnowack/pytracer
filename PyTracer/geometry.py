@@ -2,18 +2,24 @@
 
 import math2d
 from mesh import Mesh
+from material import Material
+from itertools import izip
 
+from _fast_intersect import calc_intersections
 
 class Geometry(object):
     """
     Contains all mesh objects in the simulation, then translates geometry into simple arrays for fast computation
     """
-    def __init__(self, universe_material):
+    def __init__(self, universe_material=None):
         self.solids = []
         self.mesh = None
         self.inner_materials = None
         self.outer_materials = None
-        self.universe_material = universe_material
+        if not universe_material:
+            self.universe_material = universe_material
+        else:
+            self.universe_material = Material(0.00, color='white')
 
     def draw(self, draw_normals=False):
         """
@@ -73,6 +79,11 @@ class Geometry(object):
 
         return intercepts, indexes
 
+        # i = calc_intersections(start, end, self.mesh.segments)
+        # intercepts = i[:, :2]
+        # indexes = i[:, 2]
+        # return intercepts, indexes
+
     def attenuation_length(self, start, end):
         """
         Calculate of attenuation length through geometry from start to end
@@ -126,7 +137,7 @@ class Geometry(object):
             inner_atten = self.inner_materials[closest_index].attenuation
             atten_length = np.linalg.norm(start - end) * inner_atten
 
-        for intercept, index in zip(intercepts, indexes):
+        for intercept, index in izip(intercepts, indexes):
             normal = math2d.normal(self.mesh.segments[index])
             start_sign = np.sign(np.dot(start - intercept, normal))
             inner_atten = self.inner_materials[index].attenuation

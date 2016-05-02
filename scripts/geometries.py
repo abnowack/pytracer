@@ -1,8 +1,8 @@
 from mesh import create_hollow, create_rectangle, create_circle
 from solid import Solid
 
-from PyTracer.material import Material
-from PyTracer.simulation import Simulation
+from pytracer.material import Material
+from pytracer.simulation import Simulation
 
 
 def build_shielded_geometry(fission=False):

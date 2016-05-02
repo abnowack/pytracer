@@ -1,6 +1,6 @@
 ﻿import matplotlib.pyplot as plt
-from PyTracer.detector import DetectorArc, DetectorPlane
-from PyTracer.geometry import Geometry
+from pytracer.detector import DetectorArc, DetectorPlane
+from pytracer.geometry import Geometry
 from source import Source
 
 
@@ -26,12 +26,12 @@ class Simulation(object):
         elif type == 'arc':
             self.detector = DetectorArc(self.source.pos, diameter, width / 2., -width / 2., nbins)
 
-    def rotate(self, angle):
+    def rotate(self, angle, rotate_grid=False):
         if self.detector:
             self.detector.rotate(angle)
         if self.source:
             self.source.rotate(angle)
-        if self.grid:
+        if self.grid and rotate_grid:
             self.grid.rotate(angle)
 
     def draw(self, draw_normals=False):
