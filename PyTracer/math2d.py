@@ -133,6 +133,36 @@ def intersect(segment, other_segment, other_is_ray=False):
         if not other_is_ray or 0. < u <= 1.:
             return intersection
 
+# Still slower than the C implementation!!
+def intersects(segments, other_segment, other_is_ray=False):
+    epsilon = 1e-15
+    p = segments[:, 0]
+    q = other_segment[0]
+    r = segments[:, 1] - segments[:, 0]
+    s = other_segment[1] - other_segment[0]
+
+    denom = r[:, 0] * s[1] - r[:, 1] * s[0]
+
+    denom_mask = denom != 0.
+
+    u_num = (q - p)[:, 0] * r[:, 1] - (q - p)[:, 1] * r[:, 0]
+    t_num = (q - p)[:, 0] * s[1] - (q - p)[:, 1] * s[0]
+
+    t = t_num / denom
+    u = u_num / denom
+
+    intersection = t[:, np.newaxis] * r
+    intersection += p
+
+    t_mask = (-epsilon < t) & (t < 1. - epsilon)
+    mask = denom_mask & t_mask
+
+    if not other_is_ray:
+        u_mask = (0. < u) & (u <= 1.)
+        mask = u_mask & mask
+
+    indexes,  = np.where(mask)
+    return intersection[mask], indexes
 
 def angle_matrix(angle, radian=False):
     """

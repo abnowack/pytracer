@@ -5,7 +5,8 @@ from mesh import Mesh
 from material import Material
 from itertools import izip
 
-from _fast_intersect import calc_intersections
+# from _fast_intersect import calc_intersections
+from intersect_module import intersect_c
 
 class Geometry(object):
     """
@@ -68,13 +69,15 @@ class Geometry(object):
             index of intersecting segments in geometry class
 
         """
-        intercepts, indexes = [], []
         intersect_segment = np.array([start, end])
+        intercepts, indexes = [], []
 
         for i, segment in enumerate(self.mesh.segments):
-            intercept = math2d.intersect(segment, intersect_segment, ray)
+            intercept = intersect_c(segment[0][0], segment[0][1], segment[1][0], segment[1][1],
+                                    start[0], start[1], end[0], end[1])
+            # intercept = math2d.intersect(segment, intersect_segment, ray)
             if intercept is not None:
-                intercepts.append(intercept)
+                intercepts.append(np.array(intercept))
                 indexes.append(i)
 
         return intercepts, indexes
