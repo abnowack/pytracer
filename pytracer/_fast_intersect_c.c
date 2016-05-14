@@ -65,7 +65,7 @@ static PyObject* intersecting_segments_c(PyObject* self, PyObject *args) {
     int segs_ndims;
     npy_intp *segs_dims;
 
-    PyObject *return_tuple;
+    PyObject *return_list;
     int i;
 
     if (!PyArg_ParseTuple(args, "O", &arg1))
@@ -84,7 +84,7 @@ static PyObject* intersecting_segments_c(PyObject* self, PyObject *args) {
 
     // Return intersections and intercepts
 
-    return_tuple = PyTuple_New(segs_ndims);
+    return_list = PyTuple_New(segs_ndims);
     for (i = 0; i < segs_ndims; i++) {
         PyObject *num = PyLong_FromLong(segs_dims[i]);
         PyTuple_SetItem(return_tuple, i, num);
