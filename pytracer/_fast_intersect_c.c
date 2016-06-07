@@ -53,47 +53,72 @@ static PyObject* intersect_c(PyObject* self, PyObject *args) {
     ret = intersect(s1, s2, o1, o2, &isect);
 
     if (ret != 0)
-        return Py_None;
+        Py_RETURN_NONE;
 
     return Py_BuildValue("ff", isect.x, isect.y);
 }
 
 static PyObject* intersecting_segments_c(PyObject* self, PyObject *args) {
-    PyObject *arg1=NULL;
-    PyObject *segs=NULL;
-
+    PyArrayObject *segs;
     int segs_ndims;
     npy_intp *segs_dims;
 
+    double *x1, *x2, *y1, *y2;
+    union Point s1, s2, o1, o2, isect;
+    int ret;
+
+    PyObject *seg_index;
+    PyObject *xcoord_float;
+    PyObject *ycoord_float;
+
+    PyObject *index_list;
+    PyObject *xcoord_list;
+    PyObject *ycoord_list;
     PyObject *return_list;
-    int i;
 
-    if (!PyArg_ParseTuple(args, "O", &arg1))
+    long int i;
+
+    index_list = PyList_New(0);
+    xcoord_list = PyList_New(0);
+    ycoord_list = PyList_New(0);
+    return_list = PyList_New(0);
+
+    if (!PyArg_ParseTuple(args, "O!dddd", &PyArray_Type, &segs, &o1.x, &o1.y, &o2.x, &o2.y))
         return NULL;
-
-    segs = PyArray_FROM_OTF(arg1, NPY_DOUBLE, NPY_IN_ARRAY);
-    if (segs == NULL) return NULL;
 
     // Get dimension of segs
     segs_ndims = PyArray_NDIM(segs);
     segs_dims = PyArray_DIMS(segs);
 
-    // Get Point1,2 from oseg
-    // Loop over dimension of segs and calculate intercept
-    // Append to list (TODO: Array?)
+    for (i = 0; i < segs_dims[0]; i++) {
+        x1 = (double*)PyArray_GETPTR3(segs, i, 0, 0);
+        x2 = (double*)PyArray_GETPTR3(segs, i, 1, 0);
+        y1 = (double*)PyArray_GETPTR3(segs, i, 0, 1);
+        y2 = (double*)PyArray_GETPTR3(segs, i, 1, 1);
+        s1.x = *x1;
+        s1.y = *y1;
+        s2.x = *x2;
+        s2.y = *y2;
 
-    // Return intersections and intercepts
+        ret = intersect(s1, s2, o1, o2, &isect);
 
-    return_list = PyTuple_New(segs_ndims);
-    for (i = 0; i < segs_ndims; i++) {
-        PyObject *num = PyLong_FromLong(segs_dims[i]);
-        PyTuple_SetItem(return_tuple, i, num);
+        if (ret == 0) {
+            seg_index = PyInt_FromLong(i);
+            xcoord_float = PyFloat_FromDouble(isect.x);
+            ycoord_float = PyFloat_FromDouble(isect.y);
+            PyList_Append(index_list, seg_index);
+            PyList_Append(xcoord_list, xcoord_float);
+            PyList_Append(ycoord_list, ycoord_float);
+        }
     }
 
     // Cleanup created vars
-    Py_DECREF(segs);
+//    Py_DECREF(segs);
 
-    return return_tuple;
+    PyList_Append(return_list, index_list);
+    PyList_Append(return_list, xcoord_list);
+    PyList_Append(return_list, ycoord_list);
+    return return_list;
 
   fail:
     Py_XDECREF(segs);

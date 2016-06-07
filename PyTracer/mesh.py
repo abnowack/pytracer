@@ -60,7 +60,7 @@ class Mesh(object):
         self.segments[:, :, 0] += shift[0]
         self.segments[:, :, 1] += shift[1]
 
-    def rotate(self, angle, pivot=[0., 0.], degrees=True):
+    def rotate(self, angle, pivot=None, degrees=True):
         """
         Rotate the 2D mesh by `angle` degrees about a point `pivot`
 
@@ -73,8 +73,8 @@ class Mesh(object):
         degrees : bool
             Whether angle is in degrees (default) or in radians
         """
-        self.segments[:, :, 0] -= pivot[0]
-        self.segments[:, :, 1] -= pivot[1]
+        if pivot:
+            self.translate(-pivot)
 
         if degrees:
             angle = np.deg2rad(angle)
@@ -82,8 +82,11 @@ class Mesh(object):
         new_xs = self.segments[:, :, 0] * np.cos(angle) - self.segments[:, :, 1] * np.sin(angle)
         new_ys = self.segments[:, :, 0] * np.sin(angle) + self.segments[:, :, 1] * np.cos(angle)
 
-        self.segments[:, :, 0] = new_xs - pivot[0]
-        self.segments[:, :, 1] = new_ys - pivot[1]
+        self.segments[:, :, 0] = new_xs
+        self.segments[:, :, 1] = new_ys
+
+        if pivot:
+            self.translate(pivot)
 
 
 def create_rectangle(width, height):

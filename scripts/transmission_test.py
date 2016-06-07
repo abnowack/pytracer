@@ -40,8 +40,8 @@ if __name__ == "__main__":
     # sim.rotate(20.)
 
     # plt.figure()
-    sim.draw()
-    plt.tight_layout()
+    # sim.draw()
+    # plt.tight_layout()
 
     # plt.figure()
     # trace = sim.radon_transform(([11.01]))
@@ -51,18 +51,18 @@ if __name__ == "__main__":
 
     response = build_transmission_response(sim, angles)
 
-    plt.figure()
-    plt.imshow(response[:, :, 0], interpolation='none')
+    # plt.figure()
+    # plt.imshow(response[:, :, 0], interpolation='none')
 
     measurement = scan(sim, angles)
 
-    plt.figure()
-    plt.imshow(measurement, interpolation='none')
+    # plt.figure()
+    # plt.imshow(measurement, interpolation='none')
 
     recon = recon_tikhonov(measurement, response)
     recon = recon.reshape(sim.grid.ny, sim.grid.nx)
 
-    plt.figure()
-    plt.imshow(recon, interpolation='none')
-
-    plt.show()
+    # plt.figure()
+    # plt.imshow(recon, interpolation='none')
+    #
+    # plt.show()

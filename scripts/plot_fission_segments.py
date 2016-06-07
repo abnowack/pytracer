@@ -9,7 +9,7 @@ from pytracer.fission import propagate_fission_ray
 def main():
     sim = build_shielded_geometry(True)
 
-    sim.rotate(20.)
+    # sim.rotate(20.)
     sim.draw()
 
     rays = sim.source.emit(-15, 15, 50)
@@ -24,10 +24,10 @@ def main():
         print i
         end = sim.source.pos + 50 * ray
 
-        # segments, cross_sections = sim.geometry.fission_segments(sim.source.pos, end)
-        #
-        # for segment in segments:
-        #     plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
+        segments, cross_sections = sim.geometry.fission_segments(sim.source.pos, end)
+
+        for segment in segments:
+            plt.plot([segment[0][0], segment[1][0]], [segment[0][1], segment[1][1]], color='black')
 
         fission_probs[i, :] = propagate_fission_ray(sim, sim.source.pos, end, n=5)
 

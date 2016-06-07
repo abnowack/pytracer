@@ -7,9 +7,9 @@ from pytracer.simulation import Simulation
 
 def build_shielded_geometry(fission=False):
     air = Material(0.001, color='white')
-    u235_metal = Material(0.1, 0.1, color='green')
-    poly = Material(0.05, color='red')
-    steel = Material(0.07, color='orange')
+    u235_metal = Material(0.2, 0.1, color='green')
+    poly = Material(0.3, color='red')
+    steel = Material(0.18, color='orange')
 
     box = create_hollow(create_rectangle(20., 10.), create_rectangle(18., 8.))
 
@@ -23,7 +23,7 @@ def build_shielded_geometry(fission=False):
     small_box_2.translate([6., -2.])
 
     sim = Simulation(air)
-    sim.add_aligned_source_detector(diameter=50., nbins=200, width=30., type='plane')
+    sim.add_aligned_source_detector(diameter=50., nbins=100, width=30., type='arc')
     sim.geometry.solids.append(Solid(box, steel, air))
     if fission:
         sim.geometry.solids.append((Solid(hollow_circle, u235_metal, air)))

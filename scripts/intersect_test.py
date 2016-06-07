@@ -8,6 +8,8 @@ from pytracer.transmission import *
 from pytracer.grid import Grid
 from geometries import build_shielded_geometry
 
+from intersect_module import intersecting_segments_c as isc
+
 if __name__ == "__main__":
     sim = build_shielded_geometry()
     sim.detector.width = 50
@@ -22,12 +24,9 @@ if __name__ == "__main__":
 
     plt.plot([start[0], end[0]], [start[1], end[1]])
 
-    intercepts, _ = sim.geometry.get_intersecting_segments(start, end)
-    print intercepts
+    intercepts, indexes = sim.geometry.get_intersecting_segments(start, end)
 
     for intercept in intercepts:
         plt.plot(intercept[0], intercept[1], 'o', color='green')
-
-    print len(intercepts)
 
     plt.show()
