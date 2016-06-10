@@ -2,10 +2,14 @@
 Raytracing program written in Python, applying CT reconstruction methods
 
 TODO :
-[ ] Get transmission CT reconstruction working again
-[ ] Nice display of transmission response
-[ ] Create Single Fission Response per pixel, save
+[x] Get transmission CT reconstruction working again
+
+[x] Nice display of transmission response
+
+[x] Create Single Fission Response per pixel, save
+
 [ ] Create Full Single Fission Response Measurement
+
 [ ] Apply brute force reconstruction methods
 
 Longer Term TODO :
