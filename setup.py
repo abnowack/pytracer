@@ -12,7 +12,7 @@ intersect_module = Extension('pytracer.intersect_module',
                              include_dirs=[numpy.get_include()])
 
 setup(
-    name='PyTracer',
+    name='pytracer',
     version='0.1dev',
     package_dir={'pytracer': 'pytracer'},
     packages=['pytracer'],
