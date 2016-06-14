@@ -5,7 +5,8 @@ from mesh import Mesh
 from material import Material
 from itertools import izip
 
-from intersect_module import intersect_c, intersecting_segments_c
+
+# from intersect_module import intersect_c, intersecting_segments_c
 
 class Geometry(object):
     """
@@ -46,6 +47,22 @@ class Geometry(object):
                 self.mesh += solid.mesh
                 self.inner_materials = np.concatenate((self.inner_materials, solid.inner_materials))
                 self.outer_materials = np.concatenate((self.outer_materials, solid.outer_materials))
+
+    # TODO memoize?
+    @property
+    def inner_attenuation(self):
+        inner_atten = np.zeros(len(self.inner_materials))
+        for i, inner_mat in enumerate(self.inner_materials):
+            inner_atten[i] = self.inner_materials[i].attenuation
+        return inner_atten
+
+    # TODO memoize?
+    @property
+    def outer_attenuation(self):
+        outer_atten = np.zeros(len(self.outer_materials))
+        for i, outer_mat in enumerate(self.outer_materials):
+            outer_atten[i] = self.outer_materials[i].attenuation
+        return outer_atten
 
     def get_intersecting_segments(self, start, end, ray=False):
         """
@@ -95,8 +112,8 @@ class Geometry(object):
         #         indexes.append(i)
 
         # Full C Implementation 4
-        indexes, xcoords, ycoords = intersecting_segments_c(self.mesh.segments, start[0], start[1], end[0], end[1])
-        intercepts = np.vstack((xcoords, ycoords)).T
+        # indexes, xcoords, ycoords = intersecting_segments_c(self.mesh.segments, start[0], start[1], end[0], end[1])
+        #intercepts = np.vstack((xcoords, ycoords)).T
 
         # Cythonized Version 5
         # intersect_segment = np.array([start, end])
@@ -109,7 +126,7 @@ class Geometry(object):
         #         intercepts.append(np.array(intercept))
         #         indexes.append(i)
 
-        return intercepts, indexes
+        #return intercepts, indexes
 
     def attenuation_length(self, start, end):
         """

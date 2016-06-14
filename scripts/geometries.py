@@ -1,9 +1,7 @@
-from mesh import create_hollow, create_rectangle, create_circle
-from solid import Solid
-
+from pytracer.mesh import create_hollow, create_rectangle, create_circle
+from pytracer.solid import Solid
 from pytracer.material import Material
 from pytracer.simulation import Simulation
-
 
 def build_shielded_geometry(fission=False):
     air = Material(0.001, color='white')
