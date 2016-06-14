@@ -1,37 +1,30 @@
-# cython: profile=True
+# cython: profile=False
 import numpy as np
 
 cimport numpy as np
-cimport cython
+from cython cimport cdivision, boundscheck, wraparound
 from libc.math cimport sqrt
 
 cdef inline double distance(double x1, double y1, double x2, double y2):
     cdef:
-        double distance = 0
+        double tmp = 0
 
-    distance = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
-    distance = sqrt(distance)
-    return distance
+    tmp = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
+    return sqrt(tmp)
 
-@cython.cdivision(True)
-@cython.boundscheck(False)
-def intersections(double[:, :, ::1] segments, double[:, ::1] path, bint ray=False, int max_intersections=100):
+# TODO Make this more safe if intersects or indexes isn't passed correctly
+@cdivision(True)
+@boundscheck(False)
+cpdef int intersections(double[:, :, ::1] segments, double[:, ::1] path,
+                    double[:, ::1] intersects, int[::1] indexes,
+                    bint ray=False):
     cdef:
-        int segments_n = segments.shape[0]
-        int i
-        double[:, ::1] intersects = np.empty((max_intersections, 2), dtype=np.double)
-        int [::1] indexes = np.empty(max_intersections, dtype=np.int)
+        int i, intercepts_n = 0
         double r[2]
         double s[2]
-        double denom
-        double p[2]
-        double q[2]
-        double t, u
-        double intercept_x, intercept_y
-        int intercepts_n = 0
-        double epsilon = 1e-15
+        double denom, t, u, epsilon = 1e-15
 
-    for i in range(segments_n):
+    for i in range(segments.shape[0]):
         r[0] = segments[i, 1, 0] - segments[i, 0, 0]
         r[1] = segments[i, 1, 1] - segments[i, 0, 1]
         s[0] = path[1, 0] - path[0, 0]
@@ -39,86 +32,69 @@ def intersections(double[:, :, ::1] segments, double[:, ::1] path, bint ray=Fals
 
         denom = r[0] * s[1] - r[1] * s[0]
         if denom == 0.:
-            return intersects[:0], indexes[:0]
+            return 0
 
-        p[0] = segments[i, 0, 0]
-        p[1] = segments[i, 0, 1]
-        q[0] = path[0, 0]
-        q[1] = path[0, 1]
-
-        t = (q[0] - p[0]) * s[1] - (q[1] - p[1]) * s[0]
+        t = (path[0, 0] - segments[i, 0, 0]) * s[1] - (path[0, 1] - segments[i, 0, 1]) * s[0]
         t = t / denom
-        u = (q[0] - p[0]) * r[1] - (q[1] - p[1]) * r[0]
+        u = (path[0, 0] - segments[i, 0, 0]) * r[1] - (path[0, 1] - segments[i, 0, 1]) * r[0]
         u = u / denom
-
-        intercept_x = p[0] + t * r[0]
-        intercept_y = p[1] + t * r[1]
 
         if -epsilon < t < 1. - epsilon:
             if not ray or 0. < u <= 1.:
-                intersects[intercepts_n, 0] = intercept_x
-                intersects[intercepts_n, 1] = intercept_y
+                intersects[intercepts_n, 0] = segments[i, 0, 0] + t * r[0]
+                intersects[intercepts_n, 1] = segments[i, 0, 1] + t * r[1]
                 indexes[intercepts_n] = i
                 intercepts_n += 1
 
-    return intersects[:intercepts_n], indexes[:intercepts_n]
+    return intercepts_n
 
-@cython.cdivision(True)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-cpdef double attenuation_length(double[:, :, ::1] segments, double[:] start, double[:] end,
-                       double[:] inner_attenuation, double[:] outer_attenuation,
-                       double universe_attenuation):
+@cdivision(True)
+@boundscheck(False)
+@wraparound(False)
+cpdef double attenuation_length(double[:, :, ::1] segments, double[:, ::1] path,
+                       double[::1] inner_attenuation, double[::1] outer_attenuation,
+                       double universe_attenuation, double[:, ::1] intersects_cache,
+                       int[::1] indexes_cache):
     cdef:
-        double[:, ::1] intercepts
-        int[::1] indexes
-        double[:, ::1] path = np.array([start, end])
+        int n_intercepts = 0
         double attenuation = 0
         double current_distance = 0, min_distance = 1e15
-        # int closest_index
-        # double[:] closest_intercept
-        double dotprod = 0.0
+        double tmp, tmp2
         int i, ci
 
-    intercepts, indexes = intersections(segments, path)
-    no_segment_intercepts = False
-
+    n_intercepts = intersections(segments, path, intersects_cache, indexes_cache)
 
     # If no intersection must determine what material we are within by tracing a ray
-    if intercepts.shape[0] == 0:
-        intercepts, indexes = intersections(segments, path, ray=True)
-        no_segment_intercepts = True
-    # No intersection through a ray, must be outside the object, return atten_length from universe material
-    if intercepts.shape[0] == 0:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * universe_attenuation
+    if n_intercepts == 0:
+        n_intercepts = intersections(segments, path, intersects_cache, indexes_cache, ray=True)
+
+    # No intersection through a ray, must be outside the object, return attenuation from universe material
+    if n_intercepts == 0:
+        attenuation = distance(path[0, 0], path[0, 1], path[1, 0], path[1, 1]) * universe_attenuation
         return attenuation
 
-    for i in range(intercepts.shape[0]):
-        current_distance = distance(intercepts[i, 0], intercepts[i, 1], start[0], start[1])
+    for i in range(n_intercepts):
+        current_distance = distance(intersects_cache[i, 0], intersects_cache[i, 1], path[0, 0], path[0, 1])
         if current_distance < min_distance:
             ci = i
             min_distance = current_distance
 
-    dotprod = (start[0] - intercepts[ci, 0]) * (segments[indexes[ci], 0, 1] - segments[indexes[ci], 1, 1])
-    dotprod += (start[1] - intercepts[ci, 1]) * (segments[indexes[ci], 1, 0] - segments[indexes[ci], 0, 0])
-    # start_sign = np.sign(np.dot(np.subtract(start, closest_intercept), closest_normal))
+    tmp = (path[0, 0] - intersects_cache[ci, 0]) * (segments[indexes_cache[ci], 0, 1] - segments[indexes_cache[ci], 1, 1])
+    tmp += (path[0, 1] - intersects_cache[ci, 1]) * (segments[indexes_cache[ci], 1, 0] - segments[indexes_cache[ci], 0, 0])
 
-    if dotprod > 0:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * outer_attenuation[indexes[ci]]
+    if tmp > 0:
+        attenuation = distance(path[0, 0], path[0, 1], path[1, 0], path[1, 1]) * outer_attenuation[indexes_cache[ci]]
     else:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * inner_attenuation[indexes[ci]]
+        attenuation = distance(path[0, 0], path[0, 1], path[1, 0], path[1, 1]) * inner_attenuation[indexes_cache[ci]]
 
-    # No segment intercept, so return the beginning to end atten_length
-    if no_segment_intercepts:
-        return attenuation
-
-    # Had intersections, so add up all individual atten_lengths between start to end
-    for i in range(intercepts.shape[0]):
-        dotprod = (start[0] - intercepts[i, 0]) * (segments[indexes[i], 0, 1] - segments[indexes[i], 1, 1])
-        dotprod += (start[1] - intercepts[i, 1]) * (segments[indexes[i], 1, 0] - segments[indexes[i], 0, 0])
-        if dotprod > 0:
-            attenuation += sqrt((intercepts[i, 0] - end[0]) ** 2. + (intercepts[i, 1] - end[1]) ** 2.) * (inner_attenuation[indexes[i]] - outer_attenuation[indexes[i]])
+    # Had intersections, so add up all individual attenuations between start and end
+    for i in range(n_intercepts):
+        tmp = (path[0, 0] - intersects_cache[i, 0]) * (segments[indexes_cache[i], 0, 1] - segments[indexes_cache[i], 1, 1])
+        tmp += (path[0, 1] - intersects_cache[i, 1]) * (segments[indexes_cache[i], 1, 0] - segments[indexes_cache[i], 0, 0])
+        tmp2 = sqrt((intersects_cache[i, 0] - path[1, 0]) ** 2. + (intersects_cache[i, 1] - path[1, 1]) ** 2.)
+        tmp2 *= (inner_attenuation[indexes_cache[i]] - outer_attenuation[indexes_cache[i]])
+        if tmp > 0:
+            attenuation += tmp2
         else:
-            attenuation -= sqrt((intercepts[i, 0] - end[0]) ** 2. + (intercepts[i, 1] - end[1]) ** 2.) * (inner_attenuation[indexes[i]] - outer_attenuation[indexes[i]])
-
+            attenuation -= tmp2
     return attenuation

@@ -60,7 +60,7 @@ def main2():
     # print np.asarray(indexes)
     # print
 
-    print m2c.attenuation_length(segments, start, end, inner_attenuation, outer_attenuation, 0.0)
+    print m2c.attenuation_length(segments, np.array([start, end]), inner_attenuation, outer_attenuation, 0.0)
 
     # plt.show()
 
@@ -79,20 +79,23 @@ def main():
     # for i in xrange(start.shape[1]):
     #     plt.plot([start[0, i, h], end[0, i, h]], [start[1, i, h], end[1, i, h]], c='b')
 
+    intersects_cache = np.empty((100, 2), dtype=np.double)
+    indexes_cache = np.empty(100, dtype=np.int)
+
     for h in xrange(start.shape[2]):
         for i in xrange(start.shape[1]):
             s, e = start[:, i, h], end[:, i, h]
-            radon[i, h] = m2c.attenuation_length(segments, s, e, inner_attenuation, outer_attenuation, 0.0)
+            radon[i, h] = m2c.attenuation_length(segments, np.array([s, e]), inner_attenuation, outer_attenuation, 0.0,
+                                                 intersects_cache, indexes_cache)
 
-            # plt.figure()
-            # plt.imshow(radon, interpolation='none')
-            #
-            # plt.show()
+    plt.figure()
+    plt.imshow(radon, interpolation='none')
+
+    plt.show()
 
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    import cProfile
-
-    cProfile.run('main()', sort='time')
+    # import cProfile
+    # cProfile.run('main()', sort='time')

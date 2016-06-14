@@ -70,3 +70,51 @@ After converting attenuation_length efficiently to Cython as well
     10000    0.024    0.000    0.531    0.000 {math2d_c.attenuation_length}
     60000    0.023    0.000    0.023    0.000 stringsource:896(pybuffer_index)
         1    0.019    0.019    0.552    0.552 radon_profiler.py:63(main)
+```
+
+After caching intersects and indexes so we dont need to keep creating new arrays everytime
+```
+   495292 function calls in 0.201 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    10000    0.033    0.000    0.077    0.000 math2d_c.pyx:73(attenuation_length)
+    84976    0.031    0.000    0.031    0.000 stringsource:341(__cinit__)
+    10000    0.027    0.000    0.167    0.000 {math2d_c.attenuation_length}
+        1    0.018    0.018    0.201    0.201 radon_profiler.py:68(main)
+    60000    0.016    0.000    0.043    0.000 stringsource:643(memoryview_cwrapper)
+    12488    0.015    0.000    0.034    0.000 math2d_c.pyx:19(intersections)
+    24976    0.014    0.000    0.020    0.000 stringsource:985(memoryview_fromslice)
+    10012    0.014    0.000    0.014    0.000 {numpy.core.multiarray.array}
+    10000    0.012    0.000    0.093    0.000 math2d_c.pyx:73(attenuation_length (wrapper))
+```
+
+After having intersections just return the number of intersections stored in the cache
+```
+         345436 function calls in 0.140 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    60000    0.025    0.000    0.025    0.000 stringsource:341(__cinit__)
+    10000    0.025    0.000    0.110    0.000 {math2d_c.attenuation_length}
+    10000    0.016    0.000    0.027    0.000 math2d_c.pyx:73(attenuation_length)
+        1    0.016    0.016    0.140    0.140 radon_profiler.py:68(main)
+    60000    0.015    0.000    0.040    0.000 stringsource:643(memoryview_cwrapper)
+    10012    0.012    0.000    0.012    0.000 {numpy.core.multiarray.array}
+    10000    0.012    0.000    0.042    0.000 math2d_c.pyx:73(attenuation_length (wrapper))
+    12488    0.009    0.000    0.009    0.000 math2d_c.pyx:19(intersections)
+```
+
+Turning profiling off then reduces this
+```
+         20252 function calls in 0.092 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    10000    0.063    0.000    0.063    0.000 {math2d_c.attenuation_length}
+        1    0.015    0.015    0.092    0.092 radon_profiler.py:68(main)
+    10012    0.012    0.000    0.012    0.000 {numpy.core.multiarray.array}
+```
