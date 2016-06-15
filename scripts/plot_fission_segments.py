@@ -21,7 +21,6 @@ def main():
     fission_probs = np.zeros((np.size(rays, 0), sim.detector.nbins))
 
     for i, ray in enumerate(rays):
-        print i
         end = sim.source.pos + 50 * ray
 
         segments, cross_sections = sim.geometry.fission_segments(sim.source.pos, end)

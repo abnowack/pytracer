@@ -1,17 +1,16 @@
 ﻿import numpy as np
 
 import math2d
+import math2d_c
 from mesh import Mesh
 from material import Material
 from itertools import izip
-
-
-# from intersect_module import intersect_c, intersecting_segments_c
 
 class Geometry(object):
     """
     Contains all mesh objects in the simulation, then translates geometry into simple arrays for fast computation
     """
+
     def __init__(self, universe_material=None):
         self.solids = []
         self.mesh = None
@@ -21,6 +20,9 @@ class Geometry(object):
             self.universe_material = universe_material
         else:
             self.universe_material = Material(0.00, color='white')
+
+        self.intersects_cache = np.empty((100, 2), dtype=np.double)
+        self.indexes_cache = np.empty(100, dtype=np.int)
 
     def draw(self, draw_normals=False):
         """
@@ -65,68 +67,9 @@ class Geometry(object):
         return outer_atten
 
     def get_intersecting_segments(self, start, end, ray=False):
-        """
-        Calculate which segments in geometry intersect the line defined by [start, end]
-
-        Parameters
-        ----------
-        start : (2) ndarray
-            Start point of intersect line
-        end : (2) ndarray
-            End point of intersect line
-        ray : bool
-            Indicate whether intersect line is a ray starting from `start`
-
-        Returns
-        -------
-        intercepts : list
-            list of intercept points [point_x, point_y]
-        indexes : list
-            index of intersecting segments in geometry class
-
-        """
-
-        # Old Method 1
-        # intersect_segment = np.array([start, end])
-        # intercepts, indexes = [], []
-        #
-        # for i, segment in enumerate(self.mesh.segments):
-        #     intercept = math2d.intersect(segment, intersect_segment, ray)
-        #     if intercept is not None:
-        #         intercepts.append(np.array(intercept))
-        #         indexes.append(i)
-
-        # Old Method 2, inline intercepts
-        # intersect_segment = np.array([start, end])
-        # intercepts, indexes = math2d.intersects(self.mesh.segments, intersect_segment, ray)
-
-        # Inner C Loop Method 3
-        # intersect_segment = np.array([start, end])
-        # intercepts, indexes = [], []
-        #
-        # for i, segment in enumerate(self.mesh.segments):
-        #     intercept = intersect_c(segment[0][0], segment[0][1], segment[1][0], segment[1][1],
-        #                             start[0], start[1], end[0], end[1])
-        #     if intercept is not None:
-        #         intercepts.append(np.array(intercept))
-        #         indexes.append(i)
-
-        # Full C Implementation 4
-        # indexes, xcoords, ycoords = intersecting_segments_c(self.mesh.segments, start[0], start[1], end[0], end[1])
-        #intercepts = np.vstack((xcoords, ycoords)).T
-
-        # Cythonized Version 5
-        # intersect_segment = np.array([start, end])
-        # intercepts, indexes = [], []
-        #
-        # for i, segment in enumerate(self.mesh.segments):
-        #     intercept = intersect_cython(segment[0][0], segment[0][1], segment[1][0], segment[1][1],
-        #                                  start[0], start[1], end[0], end[1])
-        #     if intercept is not None:
-        #         intercepts.append(np.array(intercept))
-        #         indexes.append(i)
-
-        #return intercepts, indexes
+        n_intersects = math2d_c.intersections(self.mesh.segments, np.array([start, end]), self.intersects_cache,
+                                              self.indexes_cache, ray)
+        return self.intersects_cache[:n_intersects], self.indexes_cache[:n_intersects]
 
     def attenuation_length(self, start, end):
         """
@@ -144,45 +87,10 @@ class Geometry(object):
         atten_length : float
             calculated attenuation length
         """
-        intercepts, indexes = self.get_intersecting_segments(start, end)
-        no_segment_intercepts = False
-
-        # If no intersection must determine what material we are within by tracing a ray
-        if len(intercepts) == 0:
-            intercepts, indexes = self.get_intersecting_segments(start, end, ray=True)
-            no_segment_intercepts = True
-        # No intersection through a ray, must be outside the object, return atten_length from universe material
-        if len(intercepts) == 0:
-            return np.linalg.norm(start - end) * self.universe_material.attenuation
-
-        distances = np.linalg.norm(np.add(intercepts, -start), axis=1)
-        distances_argmin = np.argmin(distances)
-        closest_index = indexes[distances_argmin]
-        closest_intercept = intercepts[distances_argmin]
-        closest_normal = math2d.normal(self.mesh.segments[closest_index])
-        start_sign = np.sign(np.dot(start - closest_intercept, closest_normal))
-
-        if start_sign > 0:
-            outer_atten = self.outer_materials[closest_index].attenuation
-            atten_length = np.linalg.norm(start - end) * outer_atten
-        else:
-            inner_atten = self.inner_materials[closest_index].attenuation
-            atten_length = np.linalg.norm(start - end) * inner_atten
-
-        # No segment intercept, so return the beginning to end atten_length
-        if no_segment_intercepts:
-            return atten_length
-
-        # Had intersections, so add up all individual atten_lengths between start to end
-        for intercept, index in izip(intercepts, indexes):
-            normal = math2d.normal(self.mesh.segments[index])
-            start_sign = np.sign(np.dot(start - intercept, normal))
-            inner_atten = self.inner_materials[index].attenuation
-            outer_atten = self.outer_materials[index].attenuation
-
-            atten_length += start_sign * np.linalg.norm(intercept - end) * (inner_atten - outer_atten)
-
-        return atten_length
+        attenuation = math2d_c.calc_attenuation(self.mesh.segments, np.array([start, end]), self.inner_attenuation,
+                                                self.outer_attenuation, self.universe_material.attenuation,
+                                                self.intersects_cache, self.indexes_cache)
+        return attenuation
 
     def fission_segments(self, start, end):
         """

@@ -1,14 +1,9 @@
-import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
-import weave
 
 from pytracer.transmission import *
 from pytracer.grid import Grid
 from geometries import build_shielded_geometry
-
-from intersect_module import intersecting_segments_c as isc
 
 if __name__ == "__main__":
     sim = build_shielded_geometry()

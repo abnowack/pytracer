@@ -13,7 +13,6 @@ if __name__ == '__main__':
     sim.grid = Grid(20, 20, 10, 10)
     sim.rotate(10.)
 
-    plt.figure()
     sim.draw(False)
     sim.grid.draw_cell(32)
     sim.grid.draw_raster_samples(32)

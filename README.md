@@ -1,6 +1,11 @@
 # PyTracer
 Raytracing program written in Python, applying CT reconstruction methods
 
+FIX :
+- [ ] Put faster attenuation calculations into main code
+- [ ] Put Fission Segment Calculation into Cython
+- [ ] Calc single fission response using above methods
+
 TODO :
 - [x] Get transmission CT reconstruction working again
 - [x] Nice display of transmission response

@@ -41,13 +41,13 @@ def radon_scan_points(diameter, height, n_vertical, n_angle):
     return paths
 
 
-def main(plot=False):
+def main(plot=False, n=100):
     sim = build_shielded_geometry()
     segments = sim.geometry.mesh.segments
     inner_attenuation = sim.geometry.inner_attenuation
     outer_attenuation = sim.geometry.outer_attenuation
 
-    paths = radon_scan_points(15, 12.5, 100, 100)
+    paths = radon_scan_points(15, 12.5, n, n)
     radon = np.zeros((paths.shape[0] * paths.shape[1]))
     paths = paths.reshape((paths.shape[0] * paths.shape[1], paths.shape[2], paths.shape[3]))
 
@@ -58,15 +58,15 @@ def main(plot=False):
 
     if plot:
         plt.figure()
-        radon = radon.reshape((100, 100))
+        radon = radon.reshape((n, n))
         plt.imshow(radon, interpolation='none')
 
         plt.show()
 
 
 if __name__ == '__main__':
-    # main(True)
+    main(True, n=1000)
 
-    import cProfile
+    # import cProfile
 
-    cProfile.run('main()', sort='time')
+    # cProfile.run('main()', sort='time')
