@@ -8,7 +8,7 @@ import sys, os
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from geometries import build_shielded_geometry
-# import math2d as m2c_py
+import math2d as m2c_py
 import math2d_c as m2c
 import matplotlib.pyplot as plt
 
@@ -71,7 +71,7 @@ def main():
     inner_attenuation = sim.geometry.inner_attenuation
     outer_attenuation = sim.geometry.outer_attenuation
 
-    start, end = radon_scan_points(15, 12.5, 100, 100)
+    start, end = radon_scan_points(15, 12.5, 1000, 1000)
     radon = np.zeros((start.shape[1], start.shape[2]))
 
     # sim.draw()
@@ -88,14 +88,15 @@ def main():
             radon[i, h] = m2c.attenuation_length(segments, np.array([s, e]), inner_attenuation, outer_attenuation, 0.0,
                                                  intersects_cache, indexes_cache)
 
-    plt.figure()
-    plt.imshow(radon, interpolation='none')
-
-    plt.show()
+            # plt.figure()
+            # plt.imshow(radon, interpolation='none')
+            #
+            # plt.show()
 
 
 if __name__ == '__main__':
-    main()
+    # main()
 
-    # import cProfile
-    # cProfile.run('main()', sort='time')
+    import cProfile
+
+    cProfile.run('main()', sort='time')

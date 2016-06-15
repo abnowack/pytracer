@@ -32,7 +32,7 @@ cpdef int intersections(double[:, :, ::1] segments, double[:, ::1] path,
 
         denom = r[0] * s[1] - r[1] * s[0]
         if denom == 0.:
-            return 0
+            continue
 
         t = (path[0, 0] - segments[i, 0, 0]) * s[1] - (path[0, 1] - segments[i, 0, 1]) * s[0]
         t = t / denom
@@ -40,7 +40,7 @@ cpdef int intersections(double[:, :, ::1] segments, double[:, ::1] path,
         u = u / denom
 
         if -epsilon < t < 1. - epsilon:
-            if not ray or 0. < u <= 1.:
+            if (not ray) or 0. < u <= 1.:
                 intersects[intercepts_n, 0] = segments[i, 0, 0] + t * r[0]
                 intersects[intercepts_n, 1] = segments[i, 0, 1] + t * r[1]
                 indexes[intercepts_n] = i

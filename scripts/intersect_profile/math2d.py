@@ -1,6 +1,5 @@
 import numpy as np
 from itertools import izip
-from math2d_c import intersections as isect
 
 
 def norm(segment):
@@ -29,23 +28,21 @@ def intersect(segment, other_segment, other_is_ray=False):
     # contained with both line segments
     # must shift over line segment by epsilon to prevent double overlapping
     if -epsilon < t < 1. - epsilon:
-        if not other_is_ray or 0. < u <= 1.:
+        if (not other_is_ray) or 0. < u <= 1.:
             return intersection
 
 
 def intersections(segments, start, end, ray=False):
-    # intersect_segment = np.array([start, end])
-    # intercepts, indexes = [], []
-    #
-    # for i, segment in enumerate(segments):
-    #     intercept = intersect(segment, intersect_segment, ray)
-    #     if intercept is not None:
-    #         intercepts.append(np.array(intercept))
-    #         indexes.append(i)
-    #
-    # return intercepts, indexes
+    intersect_segment = np.array([start, end])
+    intercepts, indexes = [], []
 
-    return isect(segments, np.array([start, end]), ray)
+    for i, segment in enumerate(segments):
+        intercept = intersect(segment, intersect_segment, ray)
+        if intercept is not None:
+            intercepts.append(np.array(intercept))
+            indexes.append(i)
+
+    return intercepts, indexes
 
 
 def attenuation_length(segments, start, end, inner_attenuation, outer_attenuation, universe_attenuation):
