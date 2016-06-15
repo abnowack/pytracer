@@ -21,7 +21,7 @@ def build_shielded_geometry(fission=False):
     small_box_2.translate([6., -2.])
 
     sim = Simulation(air)
-    sim.add_aligned_source_detector(diameter=50., nbins=100, width=30., type='arc')
+    sim.add_aligned_source_detector(diameter=50., nbins=100, width=30.)
     sim.geometry.solids.append(Solid(box, steel, air))
     if fission:
         sim.geometry.solids.append((Solid(hollow_circle, u235_metal, air)))

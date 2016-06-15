@@ -6,6 +6,7 @@ from mesh import Mesh
 from material import Material
 from itertools import izip
 
+
 class Geometry(object):
     """
     Contains all mesh objects in the simulation, then translates geometry into simple arrays for fast computation
@@ -35,7 +36,7 @@ class Geometry(object):
         """
         for solid in self.solids:
             solid.draw(draw_normals)
-    
+
     def flatten(self):
         """
         Combine all meshes into a single mesh, and all inner and outer mesh materials into single material lists
@@ -71,7 +72,7 @@ class Geometry(object):
                                               self.indexes_cache, ray)
         return self.intersects_cache[:n_intersects], self.indexes_cache[:n_intersects]
 
-    def attenuation_length(self, start, end):
+    def attenuation_length(self, start, end=None, attenuation_cache=None):
         """
         Calculate of attenuation length through geometry from start to end
 
@@ -87,10 +88,16 @@ class Geometry(object):
         atten_length : float
             calculated attenuation length
         """
-        attenuation = math2d_c.calc_attenuation(self.mesh.segments, np.array([start, end]), self.inner_attenuation,
-                                                self.outer_attenuation, self.universe_material.attenuation,
-                                                self.intersects_cache, self.indexes_cache)
-        return attenuation
+        if end is not None:
+            attenuation = math2d_c.calc_attenuation(self.mesh.segments, np.array([start, end]), self.inner_attenuation,
+                                                    self.outer_attenuation, self.universe_material.attenuation,
+                                                    self.intersects_cache, self.indexes_cache)
+            return attenuation
+        else:
+            attenuations = math2d_c.calc_attenuation_bulk(self.mesh.segments, start,
+                                                          self.inner_attenuation, self.outer_attenuation,
+                                                          self.universe_material.attenuation,
+                                                          self.intersects_cache, self.indexes_cache, attenuation_cache)
 
     def fission_segments(self, start, end):
         """
@@ -149,7 +156,7 @@ class Geometry(object):
                 elif sign < 0 and inner_material.is_fissionable:
                     segments.append([start, f_int])
                     cross_sections.append(inner_material.macro_fission)
-            elif i == len(sorted_fission_indexes)-1:
+            elif i == len(sorted_fission_indexes) - 1:
                 # test if end to last fission lixel is fissionable
                 normal = math2d.normal(self.mesh.segments[f_ind])
                 sign = np.sign(np.dot(end - f_int, normal))
@@ -169,8 +176,8 @@ class Geometry(object):
             normal_1 = math2d.normal(self.mesh.segments[f_ind])
             sign_1 = np.sign(np.dot(start - f_int, normal_1))
 
-            f_ind2 = sorted_fission_indexes[i+1]
-            f_int2 = sorted_fission_intercepts[i+1]
+            f_ind2 = sorted_fission_indexes[i + 1]
+            f_int2 = sorted_fission_intercepts[i + 1]
 
             normal_2 = math2d.normal(self.mesh.segments[f_ind2])
             sign_2 = np.sign(np.dot(start - f_int2, normal_2))
