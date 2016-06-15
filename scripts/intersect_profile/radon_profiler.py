@@ -7,6 +7,7 @@ pyximport.install(setup_args={'include_dirs': np.get_include()})
 import sys, os
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
+
 from geometries import build_shielded_geometry
 import math2d as m2c_py
 import math2d_c as m2c
@@ -29,73 +30,42 @@ def radon_scan_points(diameter, height, n_vertical, n_angle):
     offset[0] = np.cos(np.radians(angles)) * diameter
     offset[1] = -np.sin(np.radians(angles)) * diameter
 
-    start = np.zeros((2, len(vertical), len(angles)))
-    end = np.zeros(start.shape)
+    paths = np.zeros((len(vertical), len(angles), 2, 2))
 
     for i, rad in enumerate(np.radians(angles)):
-        start[0, :, i] = np.sin(rad) * vertical
-        start[1, :, i] = np.cos(rad) * vertical
-        end[:, :, i] = start[:, :, i] - offset[:, None, i]
-        start[:, :, i] += offset[:, None, i]
+        paths[:, i, :, 0] = np.sin(rad) * vertical[:, None]
+        paths[:, i, :, 1] = np.cos(rad) * vertical[:, None]
+        paths[:, i, 0, :] += offset[:, i, None].T
+        paths[:, i, 1, :] -= offset[:, i, None].T
 
-    return start, end
-
-
-def main2():
-    sim = build_shielded_geometry()
-    segments = sim.geometry.mesh.segments
-    inner_attenuation = sim.geometry.inner_attenuation
-    outer_attenuation = sim.geometry.outer_attenuation
-    # print segments.shape
-
-    # sim.draw()
-
-    start, end = np.array([-20., 1.]), np.array([30., 0.])
-
-    # plt.plot([start[0], end[0]], [start[1], end[1]])
-
-    # icepts, indexes = m2c.intersections(segments, start, end)
-    #
-    # print np.asarray(icepts)
-    # print np.asarray(indexes)
-    # print
-
-    print m2c.attenuation_length(segments, np.array([start, end]), inner_attenuation, outer_attenuation, 0.0)
-
-    # plt.show()
+    return paths
 
 
-def main():
+def main(plot=False):
     sim = build_shielded_geometry()
     segments = sim.geometry.mesh.segments
     inner_attenuation = sim.geometry.inner_attenuation
     outer_attenuation = sim.geometry.outer_attenuation
 
-    start, end = radon_scan_points(15, 12.5, 1000, 1000)
-    radon = np.zeros((start.shape[1], start.shape[2]))
-
-    # sim.draw()
-    # h = 5
-    # for i in xrange(start.shape[1]):
-    #     plt.plot([start[0, i, h], end[0, i, h]], [start[1, i, h], end[1, i, h]], c='b')
+    paths = radon_scan_points(15, 12.5, 100, 100)
+    radon = np.zeros((paths.shape[0] * paths.shape[1]))
+    paths = paths.reshape((paths.shape[0] * paths.shape[1], paths.shape[2], paths.shape[3]))
 
     intersects_cache = np.empty((100, 2), dtype=np.double)
     indexes_cache = np.empty(100, dtype=np.int)
+    m2c.calc_attenuation_bulk(segments, paths, inner_attenuation, outer_attenuation, 0.0,
+                              intersects_cache, indexes_cache, radon)
 
-    for h in xrange(start.shape[2]):
-        for i in xrange(start.shape[1]):
-            s, e = start[:, i, h], end[:, i, h]
-            radon[i, h] = m2c.attenuation_length(segments, np.array([s, e]), inner_attenuation, outer_attenuation, 0.0,
-                                                 intersects_cache, indexes_cache)
+    if plot:
+        plt.figure()
+        radon = radon.reshape((100, 100))
+        plt.imshow(radon, interpolation='none')
 
-            # plt.figure()
-            # plt.imshow(radon, interpolation='none')
-            #
-            # plt.show()
+        plt.show()
 
 
 if __name__ == '__main__':
-    # main()
+    # main(True)
 
     import cProfile
 

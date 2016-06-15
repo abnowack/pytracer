@@ -118,3 +118,19 @@ Turning profiling off then reduces this
         1    0.015    0.015    0.092    0.092 radon_profiler.py:68(main)
     10012    0.012    0.000    0.012    0.000 {numpy.core.multiarray.array}
 ```
+
+Instead of calling attenuation calculation multiple times from Python, create a function in Cython which iterates
+over a list of paths and save attenuation in pre-allocated array, doing all attenuation paths at once
+```
+   253 function calls in 0.019 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.016    0.016    0.016    0.016 {math2d_c.calc_attenuation_bulk}
+        1    0.002    0.002    0.002    0.002 radon_profiler.py:26(radon_scan_points)
+        1    0.001    0.001    0.001    0.001 {numpy.core.multiarray.dot}
+       19    0.000    0.000    0.000    0.000 {numpy.core.multiarray.zeros}
+```
+
+Ridiculously fast! We went from 6.747 to 0.019 seconds, a 350x speed up!

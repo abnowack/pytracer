@@ -51,7 +51,7 @@ cpdef int intersections(double[:, :, ::1] segments, double[:, ::1] path,
 @cdivision(True)
 @boundscheck(False)
 @wraparound(False)
-cpdef double attenuation_length(double[:, :, ::1] segments, double[:, ::1] path,
+cpdef double calc_attenuation(double[:, :, ::1] segments, double[:, ::1] path,
                        double[::1] inner_attenuation, double[::1] outer_attenuation,
                        double universe_attenuation, double[:, ::1] intersects_cache,
                        int[::1] indexes_cache):
@@ -98,3 +98,16 @@ cpdef double attenuation_length(double[:, :, ::1] segments, double[:, ::1] path,
         else:
             attenuation -= tmp2
     return attenuation
+
+@boundscheck(False)
+@wraparound(False)
+cpdef void calc_attenuation_bulk(double[:, :, ::1] segments, double[:, :, ::1] path,
+                       double[::1] inner_attenuation, double[::1] outer_attenuation,
+                       double universe_attenuation, double[:, ::1] intersects_cache,
+                       int[::1] indexes_cache, double[::1] attenuation_cache):
+    cdef:
+        int i
+
+    for i in range(path.shape[0]):
+        attenuation_cache[i] = calc_attenuation(segments, path[i], inner_attenuation, outer_attenuation,
+                                                universe_attenuation, intersects_cache, indexes_cache)
