@@ -36,22 +36,21 @@ if __name__ == "__main__":
 
     sim.draw()
 
-    radon_scan_example(sim, 200)
+    # radon_scan_example(sim, 200)
 
-    # response = build_transmission_response(sim, 50)
+    response = build_transmission_response(sim, 50)
+    plt.figure()
+    plt.imshow(response[:, :, 0], interpolation='none')
 
-    # plt.figure()
-    # plt.imshow(response[:, :, 0], interpolation='none')
+    measurement, angles = radon(sim, 50)
 
-    # measurement = scan(sim, angles)
+    plt.figure()
+    plt.imshow(measurement, interpolation='none')
 
-    # plt.figure()
-    # plt.imshow(measurement, interpolation='none')
+    recon = recon_tikhonov(measurement, response)
+    recon = recon.reshape(sim.grid.ny, sim.grid.nx)
 
-    # recon = recon_tikhonov(measurement, response)
-    # recon = recon.reshape(sim.grid.ny, sim.grid.nx)
-
-    # plt.figure()
-    # plt.imshow(recon, interpolation='none')
+    plt.figure()
+    plt.imshow(recon, interpolation='none')
 
     plt.show()

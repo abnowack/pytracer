@@ -75,7 +75,7 @@ class Grid(object):
         p2 = self.points[iy+1, ix]
         p3 = self.points[iy+1, ix+1]
         p4 = self.points[iy, ix+1]
-        return np.array([p1, p2, p3, p4])
+        return np.array([p1, p2, p3, p4, p1])
 
     def raster_points(self, i):
         rpoints = np.array([[-2., -6.], [6., -2.], [-6., 2.], [2., 6.]]) / 10.

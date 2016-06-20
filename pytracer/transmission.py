@@ -92,11 +92,12 @@ def build_transmission_response(sim, n_angles):
         cell_geo.flatten()
 
         cell_geo.attenuation_length(paths, attenuation_cache=response[:, i])
+        # for j in xrange(response.shape[0]):
+        #     start, end = paths[j, 0, :], paths[j, 1, :]
+        #     response[j, i] = cell_geo.attenuation_length(start, end)
 
-        # for j, angle in enumerate(angles):
-        #     sim.rotate(angle)
-        #     for k, detector_center in enumerate(math2d.center(sim.detector.segments)):
-        #         response[k, j, i] = cell_geo.attenuation_length(sim.source.pos, detector_center)
+    print
+
 
     return response.reshape(response_shape)
 
