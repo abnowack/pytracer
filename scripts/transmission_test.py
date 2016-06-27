@@ -29,8 +29,7 @@ def radon_scan_example(sim, n_angles):
 
 if __name__ == "__main__":
     sim = build_shielded_geometry()
-    sim.grid = Grid(25, 15, 25, 15)
-    sim.grid.create_mesh(225)
+    sim.grid = Grid(25, 15, 35, 25)
     sim.detector.width = 25
     sim.detector.nbins = 200
 
@@ -38,19 +37,20 @@ if __name__ == "__main__":
 
     # radon_scan_example(sim, 200)
 
-    response = build_transmission_response(sim, 50)
+    response = build_transmission_response(sim, 100)
     plt.figure()
     plt.imshow(response[:, :, 0], interpolation='none')
 
-    measurement, angles = radon(sim, 50)
+    measurement, angles = radon(sim, 100)
 
     plt.figure()
     plt.imshow(measurement, interpolation='none')
 
-    recon = recon_tikhonov(measurement, response)
-    recon = recon.reshape(sim.grid.ny, sim.grid.nx)
-
-    plt.figure()
-    plt.imshow(recon, interpolation='none')
+    for alpha in [500, 1000, 1500, 2000, 2500]:
+        recon = recon_tikhonov(measurement, response, alpha=alpha)
+        recon = recon.reshape(sim.grid.ny, sim.grid.nx)
+        plt.figure()
+        plt.imshow(recon, interpolation='none')
+        plt.title('alpha = ' + str(alpha))
 
     plt.show()

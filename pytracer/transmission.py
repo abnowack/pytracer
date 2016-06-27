@@ -78,11 +78,16 @@ def build_transmission_response(sim, n_angles):
     vacuum_material = Material(0.0, 0.0, color='white')
     cell_geo = Geometry(universe_material=vacuum_material)
 
+    # paths = np.zeros((sim.detector.nbins, len(angles), 2, 2))
+    # paths[:, :, 0, :] = sim.source.pos
+    # for i, angle in enumerate(angles):
+    #     sim.rotate(angle)
+    #     paths[:, i, 1, :] = math2d.center(sim.detector.segments)
     paths = np.zeros((sim.detector.nbins, len(angles), 2, 2))
-    paths[:, :, 0, :] = sim.source.pos
     for i, angle in enumerate(angles):
         sim.rotate(angle)
-        paths[:, i, 1, :] = math2d.center(sim.detector.segments)
+        paths[:, i, 0, :] = math2d.center(sim.detector.segments)
+        paths[:, i, 1, :] = -paths[:, i, 0, :][::-1]
     paths = paths.reshape((paths.shape[0] * paths.shape[1], paths.shape[2], paths.shape[3]))
 
     for i in xrange(sim.grid.ncells):
