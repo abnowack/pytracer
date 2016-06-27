@@ -1,18 +1,15 @@
 ﻿import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
-
 from pytracer.transmission import *
 from pytracer.grid import Grid
-from geometries import build_shielded_geometry
-
+from scripts.geometries import build_shielded_geometry
 
 def radon_scan_example(sim, n_angles):
     r, angles = radon(sim, n_angles)
     recon_image = inverse_radon(r, angles)
 
-    extent = [-sim.detector.width / 2., sim.detector.width / 2.]
+    extent = [-sim.detector.width / 2, sim.detector.width / 2]
 
     plt.figure()
     plt.imshow(r, cmap=plt.cm.Greys_r, interpolation='none', aspect='auto')
@@ -26,6 +23,7 @@ def radon_scan_example(sim, n_angles):
     plt.xlabel('X (cm)')
     plt.ylabel('Y (cm)')
     plt.colorbar()
+
 
 if __name__ == "__main__":
     sim = build_shielded_geometry()

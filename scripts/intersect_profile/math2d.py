@@ -1,5 +1,4 @@
 import numpy as np
-from itertools import izip
 
 
 def norm(segment):
@@ -17,7 +16,7 @@ def intersect(segment, other_segment, other_is_ray=False):
     denom = r[0] * s[1] - r[1] * s[0]
 
     # colinear or parallel
-    if denom == 0.:
+    if denom == 0:
         return None
 
     u_num = (q - p)[0] * r[1] - (q - p)[1] * r[0]
@@ -27,8 +26,8 @@ def intersect(segment, other_segment, other_is_ray=False):
 
     # contained with both line segments
     # must shift over line segment by epsilon to prevent double overlapping
-    if -epsilon < t < 1. - epsilon:
-        if (not other_is_ray) or 0. < u <= 1.:
+    if -epsilon < t < 1 - epsilon:
+        if (not other_is_ray) or 0 < u <= 1:
             return intersection
 
 
@@ -76,7 +75,7 @@ def attenuation_length(segments, start, end, inner_attenuation, outer_attenuatio
         return atten_length
 
     # Had intersections, so add up all individual atten_lengths between start to end
-    for intercept, index in izip(intercepts, indexes):
+    for intercept, index in zip(intercepts, indexes):
         normal = norm(segments[index])
         start_sign = np.sign(np.dot(start - intercept, normal))
         inner_atten = inner_attenuation[index]

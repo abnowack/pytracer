@@ -1,7 +1,7 @@
 ﻿import matplotlib.pyplot as plt
-from pytracer.detector import DetectorArc, DetectorPlane
-from pytracer.geometry import Geometry
-from source import Source
+from .detector import DetectorArc, DetectorPlane
+from .geometry import Geometry
+from .source import Source
 
 
 class Simulation(object):
@@ -19,12 +19,12 @@ class Simulation(object):
         self.detector = None
         self.grid = None
 
-    def add_aligned_source_detector(self, diameter=100., nbins=100, width=100., type='plane'):
-        self.source = Source(-diameter / 2., 0.)
+    def add_aligned_source_detector(self, diameter=100, nbins=100, width=100, type='plane'):
+        self.source = Source(-diameter / 2, 0)
         if type == 'plane':
-            self.detector = DetectorPlane([diameter / 2., 0.], width, nbins)
+            self.detector = DetectorPlane([diameter / 2, 0.], width, nbins)
         elif type == 'arc':
-            self.detector = DetectorArc(self.source.pos, diameter, width / 2., -width / 2., nbins)
+            self.detector = DetectorArc(self.source.pos, diameter, width / 2, -width / 2, nbins)
 
     def rotate(self, angle, rotate_grid=False):
         if self.detector:

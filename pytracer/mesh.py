@@ -1,6 +1,5 @@
 ﻿import numpy as np
-
-import math2d
+from . import math2d
 
 
 def continuous_path_order(segments):
@@ -39,9 +38,10 @@ class Mesh(object):
     """
     A 2D mesh object, representing a single contiguous geometrical object
     """
+
     def __init__(self, segments):
         self.segments = segments
-    
+
     def __add__(self, other):
         return Mesh(np.concatenate([self.segments, other.segments]))
 
@@ -105,14 +105,14 @@ def create_rectangle(width, height):
     """
     points = np.zeros((5, 2), dtype=np.float32)
 
-    points[0] = [width/2., height/2.]
-    points[1] = [width/2., -height/2.]
-    points[2] = [-width/2., -height/2.]
-    points[3] = [-width/2., height/2.]
-    points[4] = [width/2., height/2.]
-    
+    points[0] = [width / 2, height / 2]
+    points[1] = [width / 2, -height / 2]
+    points[2] = [-width / 2, -height / 2]
+    points[3] = [-width / 2, height / 2]
+    points[4] = [width / 2, height / 2]
+
     segments = math2d.create_segments_from_points(points)
-    
+
     return Mesh(segments)
 
 
@@ -131,15 +131,15 @@ def create_circle(radius, n_segments=20):
 
     """
     points = np.zeros((n_segments + 1, 2), dtype=np.float32)
-    
-    radians = np.linspace(0., 2 * np.pi, n_segments + 1)[:-1][::-1]
+
+    radians = np.linspace(0, 2 * np.pi, n_segments + 1)[:-1][::-1]
     points[:-1, 0] = np.cos(radians) * radius
     points[:-1, 1] = np.sin(radians) * radius
 
     points[-1] = points[0]
-    
+
     segments = math2d.create_segments_from_points(points)
-    
+
     return Mesh(segments)
 
 

@@ -1,19 +1,18 @@
 import numpy as np
 from scipy.ndimage.interpolation import rotate
-from itertools import izip
-from detector import DetectorPlane
-import math2d
-from simulation import Simulation
-from material import Material
-from geometry import Geometry
-from solid import Solid
+from .detector import DetectorPlane
+from . import math2d
+from .simulation import Simulation
+from .material import Material
+from .geometry import Geometry
+from .solid import Solid
 
 
 def radon(sim, n_angles):
     if type(sim.detector) is not DetectorPlane:
         raise TypeError('self.detector is not DetectorPlane')
 
-    angles = np.linspace(0., 180., n_angles + 1)[:-1]
+    angles = np.linspace(0, 180, n_angles + 1)[:-1]
     paths = np.zeros((sim.detector.nbins, len(angles), 2, 2))
     for i, angle in enumerate(angles):
         sim.rotate(angle)
@@ -45,7 +44,9 @@ def inverse_radon(radon, thetas):
     reconstruction_image = np.zeros((np.size(radon, 0), np.size(radon, 0)))
 
     for i, theta in enumerate(thetas):
-        filtered = np.real(np.fft.ifft(np.fft.fft(np.pad(radon[:, i], (pre_pad, post_pad), 'constant', constant_values=(0, 0))) * ramp_filter))[pre_pad:-post_pad]
+        filtered = np.real(np.fft.ifft(
+            np.fft.fft(np.pad(radon[:, i], (pre_pad, post_pad), 'constant', constant_values=(0, 0))) * ramp_filter))[
+                   pre_pad:-post_pad]
         back_projection = rotate(np.tile(filtered, (np.size(radon, 0), 1)), theta, reshape=False, mode='constant')
         reconstruction_image += back_projection * 2 * np.pi / len(thetas)
 
@@ -65,7 +66,7 @@ def build_transmission_response(sim, n_angles):
     -------
 
     """
-    angles = np.linspace(0., 180., n_angles + 1)[:-1]
+    angles = np.linspace(0, 180, n_angles + 1)[:-1]
 
     if sim.grid is None:
         raise RuntimeError("Simulation must have a grid defined")
@@ -74,8 +75,8 @@ def build_transmission_response(sim, n_angles):
     response_shape = response.shape
     response = response.reshape((response.shape[0] * response.shape[1], response.shape[2]))
 
-    unit_material = Material(1.0, 0.0, color='black')
-    vacuum_material = Material(0.0, 0.0, color='white')
+    unit_material = Material(1, 0, color='black')
+    vacuum_material = Material(0, 0, color='white')
     cell_geo = Geometry(universe_material=vacuum_material)
 
     # paths = np.zeros((sim.detector.nbins, len(angles), 2, 2))
@@ -90,8 +91,9 @@ def build_transmission_response(sim, n_angles):
         paths[:, i, 1, :] = -paths[:, i, 0, :][::-1]
     paths = paths.reshape((paths.shape[0] * paths.shape[1], paths.shape[2], paths.shape[3]))
 
-    for i in xrange(sim.grid.ncells):
-        print i
+    for i in range(sim.grid.ncells):
+        print
+        i
         grid_square = sim.grid.create_mesh(i)
         cell_geo.solids = [Solid(grid_square, unit_material, vacuum_material)]
         cell_geo.flatten()
@@ -103,11 +105,10 @@ def build_transmission_response(sim, n_angles):
 
     print
 
-
     return response.reshape(response_shape)
 
 
-def recon_tikhonov(measurement, response, alpha=0.):
+def recon_tikhonov(measurement, response, alpha=0):
     rr = response.reshape(-1, np.size(response, 2))
     mm = measurement.reshape((-1))
     lhs = np.dot(rr.T, rr)
@@ -120,4 +121,3 @@ def recon_tikhonov(measurement, response, alpha=0.):
     recon = np.linalg.solve(lhs, rhs)
 
     return recon
-

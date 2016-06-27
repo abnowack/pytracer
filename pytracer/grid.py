@@ -1,18 +1,16 @@
-import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Polygon
-
-import math2d
-from mesh import Mesh
+from . import math2d
+from .mesh import Mesh
 
 
 # TODO: Organize file structure layout
 # TODO: Breakout all algorithms into separate files, including fission stuff
 
+
 class Grid(object):
-    def __init__(self, width, height, nx, ny, origin=None, angle=0.):
+    def __init__(self, width, height, nx, ny, origin=None, angle=0):
         self.width = width
         self.height = height
         self.nx = nx
@@ -26,10 +24,10 @@ class Grid(object):
         self.points = self.render()
 
     def render(self):
-        x = np.linspace(-self.width/2., self.width/2., self.nx+1)
-        y = np.linspace(self.height/2., -self.height/2., self.ny+1)
+        x = np.linspace(-self.width / 2, self.width / 2, self.nx + 1)
+        y = np.linspace(self.height / 2, -self.height / 2, self.ny + 1)
 
-        points = np.zeros((self.ny+1, self.nx+1, 2))
+        points = np.zeros((self.ny + 1, self.nx + 1, 2))
         points[:, :, 0] = x
         points[:, :, 1] = y[:, np.newaxis]
 
@@ -39,7 +37,7 @@ class Grid(object):
 
         return points
 
-    def rotate(self, angle=0.):
+    def rotate(self, angle=0):
         self.angle = angle
         self.points = self.render()
 
@@ -49,12 +47,12 @@ class Grid(object):
     def draw_lines(self):
         # draw horizontal lines
         start, end = self.points[:, 0], self.points[:, -1]
-        for i in xrange(len(start)):
+        for i in range(len(start)):
             plt.plot([start[i, 0], end[i, 0]], [start[i, 1], end[i, 1]], color='black', zorder=10)
 
         # draw vertical lines
         start, end = self.points[0, :], self.points[-1, :]
-        for i in xrange(self.nx+1):
+        for i in range(self.nx + 1):
             plt.plot([start[i, 0], end[i, 0]], [start[i, 1], end[i, 1]], color='black', zorder=10)
 
     def draw_cell(self, i):
@@ -72,9 +70,9 @@ class Grid(object):
     def cell_boundary(self, cell_i):
         ix, iy = cell_i % self.nx, cell_i / self.nx
         p1 = self.points[iy, ix]
-        p2 = self.points[iy+1, ix]
-        p3 = self.points[iy+1, ix+1]
-        p4 = self.points[iy, ix+1]
+        p2 = self.points[iy + 1, ix]
+        p3 = self.points[iy + 1, ix + 1]
+        p4 = self.points[iy, ix + 1]
         return np.array([p1, p2, p3, p4, p1])
 
     def raster_points(self, i):
@@ -105,7 +103,7 @@ def propagate_fissions_point_detector(sim, point):
 
     nu = 1 for now, not using macro_fission
     """
-    detector_solid_angle = math2d.solid_angle(sim.detector.segments, point) / (2. * np.pi) # returns 200,200
+    detector_solid_angle = math2d.solid_angle(sim.detector.segments, point) / (2 * np.pi)  # returns 200,200
     in_attenuation_length = sim.attenuation_length(sim.source.pos, point)
     segment_centers = math2d.center(sim.detector.segments)
     out_attenuation_lengths = np.array([sim.attenuation_length(point, center) for center in segment_centers])

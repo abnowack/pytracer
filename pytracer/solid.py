@@ -1,19 +1,19 @@
 ﻿import matplotlib.pyplot as plt
 import numpy as np
-
-from pytracer import math2d
+from . import math2d
 
 
 class Solid(object):
     """
     Associate mesh objects with material information
     """
+
     def __init__(self, mesh, inner_material, outer_material):
         self.mesh = mesh
         self.inner_materials = np.tile(inner_material, np.size(self.mesh.segments, 0))
         self.outer_materials = np.tile(outer_material, np.size(self.mesh.segments, 0))
         self.color = inner_material.color
-    
+
     def draw(self, draw_normals=False):
         """
         Display mesh objects as solids on a canvas

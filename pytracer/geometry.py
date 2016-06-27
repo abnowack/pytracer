@@ -1,10 +1,7 @@
 ﻿import numpy as np
-
-import math2d
-import math2d_c
-from mesh import Mesh
-from material import Material
-from itertools import izip
+from . import math2d, math2d_c
+from .mesh import Mesh
+from .material import Material
 
 
 class Geometry(object):
@@ -133,12 +130,12 @@ class Geometry(object):
 
         # sort fission_indexes and fission_intercepts by distance from start
         distances = np.linalg.norm(np.add(fission_intercepts, -start), axis=1)
-        distance_order = [index_ for (distance_, index_) in sorted(zip(distances, range(len(distances))))]
+        distance_order = [index_ for (distance_, index_) in sorted(zip(distances, list(range(len(distances)))))]
 
         sorted_fission_indexes = [fission_indexes[i] for i in distance_order]
         sorted_fission_intercepts = [fission_intercepts[i] for i in distance_order]
 
-        for i in xrange(len(sorted_fission_indexes)):
+        for i in range(len(sorted_fission_indexes)):
             f_ind = sorted_fission_indexes[i]
             f_int = sorted_fission_intercepts[i]
 

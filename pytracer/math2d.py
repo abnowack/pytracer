@@ -22,7 +22,7 @@ def center(segments):
         sp1 = segments[0]
         sp2 = segments[1]
 
-    seg_center = (sp1 + sp2) / 2.
+    seg_center = (sp1 + sp2) / 2
     return seg_center
 
 
@@ -44,7 +44,7 @@ def normal(segment):
     """
     dx = segment[0, 1] - segment[1, 1]
     dy = segment[1, 0] - segment[0, 0]
-    length = np.sqrt(dx ** 2. + dy ** 2.)
+    length = np.sqrt(dx ** 2 + dy ** 2)
     return np.array([dx / length, dy / length], dtype=np.float32)
 
 
@@ -90,7 +90,7 @@ def solid_angle(segments, point):
     denom = 2 * a * b
 
     angle = np.arccos(np.abs(num / denom))
-    angle[angle > np.pi / 2.] = np.pi - angle[angle > np.pi / 2.]
+    angle[angle > np.pi / 2] = np.pi - angle[angle > np.pi / 2]
 
     return angle
 
@@ -112,10 +112,10 @@ def angle_matrix(angle, radian=False):
         2D rotation transformation matrix
     """
     if not radian:
-        angle = angle / 180. * np.pi
+        angle = angle / 180 * np.pi
 
     rot_matrix = np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
-    
+
     return rot_matrix
 
 

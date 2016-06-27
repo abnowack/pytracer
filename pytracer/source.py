@@ -1,10 +1,9 @@
 import numpy as np
-
-from pytracer import math2d
+from . import math2d
 
 
 class Source(object):
-    def __init__(self, x, y, angle=0.):
+    def __init__(self, x, y, angle=0):
         self._init_pos = np.array([x, y])
         self._init_angle = angle
 
@@ -22,10 +21,10 @@ class Source(object):
 
     def emit(self, start_angle, end_angle, n):
         angles = np.linspace(start_angle, end_angle, n)
-        angles *= np.pi / 180.
+        angles *= np.pi / 180
 
         end = np.ones((n, 2))
-        end[:, 0] = np.cos(np.pi * self.angle / 180. - angles)
-        end[:, 1] = np.sin(np.pi * self.angle / 180. - angles)
+        end[:, 0] = np.cos(np.pi * self.angle / 180 - angles)
+        end[:, 1] = np.sin(np.pi * self.angle / 180 - angles)
 
         return end

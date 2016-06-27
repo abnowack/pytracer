@@ -1,22 +1,19 @@
-# import matplotlib.pyplot as plt
 import numpy as np
-import pyximport;
+import pyximport
 
 pyximport.install(setup_args={'include_dirs': np.get_include()})
-
 import sys, os
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-
-from geometries import build_shielded_geometry
-import math2d as m2c_py
-import math2d_c as m2c
+from ..geometries import build_shielded_geometry
+from . import math2d as m2c_py
+from . import math2d_c as m2c
 import matplotlib.pyplot as plt
 
 
 def angle_matrix(angle, radian=False):
     if not radian:
-        angle = angle / 180. * np.pi
+        angle = angle / 180 * np.pi
 
     rot_matrix = np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
 
@@ -24,7 +21,7 @@ def angle_matrix(angle, radian=False):
 
 
 def radon_scan_points(diameter, height, n_vertical, n_angle):
-    angles = np.linspace(0., 180., n_angle + 1)[:-1]
+    angles = np.linspace(0, 180, n_angle + 1)[:-1]
     vertical = np.linspace(-height, height, n_vertical)
     offset = np.zeros((2, len(angles)))
     offset[0] = np.cos(np.radians(angles)) * diameter
@@ -68,5 +65,4 @@ if __name__ == '__main__':
     main(True, n=1000)
 
     # import cProfile
-
     # cProfile.run('main()', sort='time')

@@ -1,7 +1,7 @@
 ﻿import matplotlib.pyplot as plt
 import numpy as np
 
-import math2d
+from . import math2d
 
 
 class Detector(object):
@@ -74,7 +74,7 @@ class DetectorPlane(Detector):
 
     def render(self):
         points = np.zeros((self.nbins + 1, 2))
-        points[:, 1] = np.linspace(-self._width / 2., self._width / 2., self.nbins + 1)
+        points[:, 1] = np.linspace(-self._width / 2, self._width / 2, self.nbins + 1)
         rot = math2d.angle_matrix(self.angle)
         points = np.dot(points, rot)
 

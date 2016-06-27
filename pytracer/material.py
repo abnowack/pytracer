@@ -3,7 +3,7 @@ class Material(object):
         self.attenuation = attenuation
         self.macro_fission = macro_fission
         self.color = color
-    
+
     def __eq__(self, other):
         return self.attenuation == other.attenuation and self.macro_fission == other.macro_fission
 
