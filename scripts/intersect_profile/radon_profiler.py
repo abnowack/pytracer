@@ -5,7 +5,7 @@ pyximport.install(setup_args={'include_dirs': np.get_include()})
 import sys, os
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-from ..geometries import build_shielded_geometry
+from ..assemblies import build_shielded_geometry
 from . import math2d as m2c_py
 from . import math2d_c as m2c
 import matplotlib.pyplot as plt

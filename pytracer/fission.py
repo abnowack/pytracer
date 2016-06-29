@@ -1,6 +1,5 @@
 import numpy as np
-from . import math2d
-
+from . import geometry as geo
 
 def propagate_fission_ray(sim, start, end, n):
     segments, macro_fissions = sim.geometry.fission_segments(start, end)

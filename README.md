@@ -17,3 +17,5 @@ Longer Term TODO :
 - [ ] Implement a BVH tree for segment intersection speed up
 - [ ] Convert to gpu through CUDA (optional backend)
 - [ ] Upgrade to Python 3 (latest)
+- [ ] Think about refactoring algorithm functions to input attenuation[in, out], fission[in, out] args
+      instead of in_attenuation, out_attenuation, in_fission, out_fission

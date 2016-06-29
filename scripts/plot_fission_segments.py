@@ -1,7 +1,7 @@
 ﻿import sys
 import matplotlib.pyplot as plt
 import numpy as np
-from .geometries import build_shielded_geometry
+from .assemblies import build_shielded_geometry
 from pytracer.fission import propagate_fission_ray
 
 

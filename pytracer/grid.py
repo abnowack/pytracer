@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Polygon
-from . import math2d
-from .mesh import Mesh
 
 
 # TODO: Organize file structure layout
