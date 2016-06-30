@@ -124,8 +124,7 @@ def create_hollow(outer_segments, inner_segments):
     return np.concatenate((outer_segments, inner_segments))
 
 
-# TODO: better name
-def radon_scan_paths(height, num_projections, offset, radians):
+def parallel_beam_paths(height, num_projections, offset, radians, extent=False):
     scan_line = center(create_vertical_line(height, num_projections))
     scan_line[:, 0] += offset
     start, end = np.zeros((len(scan_line), len(radians), 2)), np.zeros((len(scan_line), len(radians), 2))
@@ -136,7 +135,14 @@ def radon_scan_paths(height, num_projections, offset, radians):
         start[:, i, 1] = scan_line[:, 0] * rot[1, 0] + scan_line[:, 1] * rot[1, 1]
     end = -start[::-1]
 
-    return start, end
+    if extent:
+        return start, end, [radians[0], radians[-1], -height / 2, height / 2]
+    else:
+        return start, end
+
+
+def fan_beam_paths(radius, diameter, arc_radians, radians):
+    pass
 
 
 Material = namedtuple('Material', 'color attenuation fission')
@@ -176,3 +182,39 @@ def flatten(solids):
         index += len(solid.segments)
 
     return flat_geom
+
+
+class Grid(object):
+    def __init__(self, width, height, num_x, num_y):
+        xs = np.linspace(-width / 2, width / 2, num_x + 1)
+        ys = np.linspace(height / 2, -height / 2, num_y + 1)
+        self.points = np.zeros((len(ys), len(xs), 2))
+        self.points[..., 0], self.points[..., 1] = np.meshgrid(xs, ys)
+
+    @property
+    def num_x(self):
+        return np.size(self.points, 1) - 1
+
+    @property
+    def num_y(self):
+        return np.size(self.points, 0) - 1
+
+    @property
+    def num_cells(self):
+        return self.num_x * self.num_y
+
+    def cell(self, i):
+        if i > self.num_cells - 1:
+            raise IndexError
+
+        ix = i % (np.size(self.points, 1) - 1)
+        iy = i // (np.size(self.points, 1) - 1)
+
+        return np.array([self.points[iy, ix], self.points[iy + 1, ix],
+                         self.points[iy + 1, ix + 1], self.points[iy, ix + 1]])
+
+    def draw(self):
+        for i in range(np.size(self.points, 1)):
+            plt.plot(self.points[(0, -1), i, 0], self.points[(0, -1), i, 1], color='black')
+        for i in range(np.size(self.points, 0)):
+            plt.plot(self.points[i, (0, -1), 0], self.points[i, (0, -1), 1], color='black')

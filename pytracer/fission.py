@@ -49,3 +49,4 @@ def calc_fission_prob(sim, rays, r=50):
         end = sim.source.pos + 50 * ray
 
         fission_probs[i, :] = propagate_fission_ray(sim, sim.source.pos, end, n=5)
+
