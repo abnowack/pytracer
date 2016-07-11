@@ -141,8 +141,27 @@ def parallel_beam_paths(height, num_projections, offset, radians, extent=False):
         return start, end
 
 
-def fan_beam_paths(radius, diameter, arc_radians, radians):
-    pass
+def fan_beam_paths(diameter, arc_radians, radians, extent=False):
+    start = np.zeros((np.size(arc_radians, 0), np.size(radians, 0), 2))
+    end = np.zeros(start.shape)
+
+    start[:, :, 0] = (np.cos(np.pi - radians) * diameter / 2)[:np.newaxis]
+    start[:, :, 1] = (np.sin(np.pi - radians) * diameter / 2)[:np.newaxis]
+
+    arc_points = np.zeros((np.size(arc_radians, 0), 2))
+    arc_points[:, 0] = np.cos(arc_radians) * diameter
+    arc_points[:, 1] = np.sin(arc_radians) * diameter
+
+    for i, radian in enumerate(radians):
+        end[:, i, 0] = start[:, i, 0] + arc_points[:, 0] * np.cos(radian) + arc_points[:, 1] * np.sin(
+            radian)
+        end[:, i, 1] = start[:, i, 1] - arc_points[:, 0] * np.sin(radian) + arc_points[:, 1] * np.cos(
+            radian)
+
+    if extent:
+        return start, end, [radians[0], radians[-1], arc_radians[0], arc_radians[-1]]
+    else:
+        return start, end
 
 
 Material = namedtuple('Material', 'color attenuation fission')

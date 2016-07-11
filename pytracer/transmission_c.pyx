@@ -12,6 +12,9 @@ cdef inline double distance(double x1, double y1, double x2, double y2):
     tmp = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
     return sqrt(tmp)
 
+cdef inline double sign_line(double x, double y, double x1, double y1, double x2, double y2):
+    return (x - x1) * (y1 - y2) - (y - y1) * (x1 - x2)
+
 # TODO Make this more safe if intersects or indexes isn't passed correctly
 @cdivision(True)
 @boundscheck(False)
@@ -75,23 +78,21 @@ cpdef double attenuation(double[::1] start, double[::1] end,
     for i in range(num_intersect):
         current_distance = distance(intersect_cache[i, 0], intersect_cache[i, 1], start[0], start[1])
         if current_distance < min_distance:
-            ci = i
+            ci = index_cache[i]
             min_distance = current_distance
 
-    tmp = (start[0] - intersect_cache[ci, 0]) * (segments[index_cache[ci], 0, 1] - segments[index_cache[ci], 1, 1])
-    tmp += (start[1] - intersect_cache[ci, 1]) * (segments[index_cache[ci], 1, 0] - segments[index_cache[ci], 0, 0])
+    tmp = sign_line(start[0], start[1], segments[ci, 0, 0], segments[ci, 0, 1], segments[ci, 1, 0], segments[ci, 1, 1])
 
     if tmp > 0:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * seg_attenuation[index_cache[ci], 1]
+        attenuation = distance(start[0], start[1], end[0], end[1]) * seg_attenuation[ci, 1]
     else:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * seg_attenuation[index_cache[ci], 0]
+        attenuation = distance(start[0], start[1], end[0], end[1]) * seg_attenuation[ci, 0]
 
     # Had intersections, so add up all individual attenuations between start and end
     for i in range(num_intersect):
-        tmp = (start[0] - intersect_cache[i, 0]) * (segments[index_cache[i], 0, 1] - segments[index_cache[i], 1, 1])
-        tmp += (start[1] - intersect_cache[i, 1]) * (segments[index_cache[i], 1, 0] - segments[index_cache[i], 0, 0])
-        tmp2 = sqrt((intersect_cache[i, 0] - end[0]) ** 2. + (intersect_cache[i, 1] - end[1]) ** 2.)
-        tmp2 *= (seg_attenuation[index_cache[i], 0] - seg_attenuation[index_cache[i], 1])
+        ci = index_cache[i]
+        tmp = sign_line(start[0], start[1], segments[ci, 0, 0], segments[ci, 0, 1], segments[ci, 1, 0], segments[ci, 1, 1])
+        tmp2 = distance(intersect_cache[i, 0], intersect_cache[i, 1], end[0], end[1]) * (seg_attenuation[ci, 0] - seg_attenuation[ci, 1])
         if tmp > 0:
             attenuation += tmp2
         else:

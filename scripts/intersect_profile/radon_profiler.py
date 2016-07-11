@@ -62,7 +62,8 @@ def main(plot=False, n=100):
 
 
 if __name__ == '__main__':
-    main(True, n=1000)
+    # main(True, n=1000)
 
-    # import cProfile
-    # cProfile.run('main()', sort='time')
+    import cProfile
+
+    cProfile.run('main()', sort='time')

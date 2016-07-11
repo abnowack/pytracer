@@ -1,52 +1,71 @@
 import numpy as np
 from . import geometry as geo
+from . import transmission
 
-def propagate_fission_ray(sim, start, end, n):
-    segments, macro_fissions = sim.geometry.fission_segments(start, end)
-    segment_probs = []
-    for segment in segments:
-        single_fission_prob = propagate_fissions_segment(sim, segment, n)
-        segment_probs.append(single_fission_prob)
-    total_fission_prob = np.sum(segment_probs, axis=0)
-    return total_fission_prob
+_fission_segment_cache = np.empty((100, 2, 2), dtype=np.double)
+_fission_value_cache = np.empty(100, dtype=np.int)
 
 
-def propagate_fissions_segment(sim, segment, n=5):
-    point_0, point_1 = segment[0], segment[1]
-    # generate points along fission segment
-    # use trapezoid rule on uniform spacing
-    # int [f(x = [a, b]) dx]  ~= (b - a) / (2 * N) [ f(a) + f(b) +  ]
-    points = [point_0 + (point_1 - point_0) * t for t in np.linspace(0.01, 0.99, n)]  # TODO : error if t = 1
-    values = np.zeros((len(points), len(sim.detector.segments)))
-    integral = np.zeros((len(sim.detector.segments)))
-    for i, point in enumerate(points):
-        values[i, :] = propagate_fissions_point_detector(sim, point)
-    integral[:] = np.linalg.norm(point_1 - point_0) / (n - 1) * (
-        values[0, :] + 2 * np.sum(values[1:-1, :], axis=0) + values[-1, :])
-    return integral
+def point_is_inner_segment_side(x, y, segments):
+    return (x - segments[:, 0, 1]) * (segments[:, 0, 1] - segments[:, 1, 1]) - (y - segments[:, 0, 1]) * (
+        segments[:, 0, 0] - segments[:, 1, 0])
 
 
-def propagate_fissions_point_detector(sim, point):
-    """
-    Calculate probability of induced fission being detected over detector plane.
+def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_values=None):
+    if fission_segments is None:
+        fission_segments = _fission_segment_cache
+    if fission_values is None:
+        fission_values = _fission_value_cache
 
-    nu = 1 for now, not using macro_fission
-    """
-    detector_solid_angle = math2d.solid_angle(sim.detector.segments, point) / (2 * np.pi)  # returns 200,200
-    in_attenuation_length = sim.geometry.attenuation_length(sim.source.pos, point)
-    segment_centers = math2d.center(sim.detector.segments)
-    out_attenuation_lengths = np.array([sim.geometry.attenuation_length(point, center) for center in segment_centers])
+    fission_segment_count = 0
+    intersects, indexes = transmission.intersections(start, end, flat_geom.segments)
+    if np.size(intersects, 0) == 0:
+        return None, None
 
-    prob = np.exp(-in_attenuation_length) * np.multiply(detector_solid_angle, np.exp(-out_attenuation_lengths))
+    # get locations where intersections are on segments containing a fissionable material
+    is_fission_boundary = np.where(flat_geom.fission[indexes] > 0)[0]  # checks inner and outer
+    f_intersects = intersects[is_fission_boundary]
+    f_indexes = indexes[is_fission_boundary]
 
-    return prob
+    if np.size(f_intersects, 0) == 0:
+        return None, None
 
+    # sort by distance from start point
+    distances = np.sum((f_intersects - start) ** 2, axis=1)
+    distance_order = np.argsort(distances)
+    f_intersects = f_intersects[distance_order]
+    f_indexes = f_indexes[distance_order]
 
-def calc_fission_prob(sim, rays, r=50):
-    fission_probs = np.zeros((np.size(rays, 0), sim.detector.nbins))
+    f_value = flat_geom.fission[f_indexes]
+    f_norms = geo.normal(flat_geom.segments[f_indexes])
+    f_dot = np.sign(point_is_inner_segment_side(start[0], start[1], flat_geom.segments[f_indexes]))
 
-    for i, ray in enumerate(rays):
-        end = sim.source.pos + 50 * ray
+    # determine if start begins in a fissionable material
+    if f_dot[0] > 0 and f_value[0, 0] > 0:
+        fission_segments[fission_segment_count] = [start, f_intersects[0]]
+        fission_values[fission_segment_count] = f_value[0, 0]
+        fission_segment_count += 1
+    elif f_dot[0] < 0 and f_value[0, 1] > 0:
+        fission_segments[fission_segment_count] = [start, f_intersects[0]]
+        fission_values[fission_segment_count] = f_value[0, 1]
+        fission_segment_count += 1
 
-        fission_probs[i, :] = propagate_fission_ray(sim, sim.source.pos, end, n=5)
+    # iterate through pairs of points, determine if they are a fissionable segment
+    for i in range(1, np.size(f_indexes) - 1):
+        if (f_dot[i] > 0 and f_value[i, 1] > 0) or (f_dot[i] < 0 and f_value[i, 0] > 0):
+            if (f_dot[i + 1] > 0 and f_value[i + 1, 0] > 0) or (f_dot[i + 1] < 0 and f_value[i + 1, 1] > 0):
+                fission_segments[fission_segment_count] = [f_intersects[i], f_intersects[i + 1]]
+                fission_values[fission_segment_count] = f_value[i, 1]
+                fission_segment_count += 1
 
+    # determine if end terminates in a fissionable material
+    if f_dot[-1] > 0 and f_value[-1, 1] > 0:
+        fission_segments[fission_segment_count] = [f_intersects[-1], end]
+        fission_values[fission_segment_count] = f_value[-1, 1]
+        fission_segment_count += 1
+    elif f_dot[-1] < 0 and f_value[-1, 0] > 0:
+        fission_segments[fission_segment_count] = [f_intersects[-1], end]
+        fission_values[fission_segment_count] = f_value[-1, 0]
+        fission_segment_count += 1
+
+    return fission_segments[:fission_segment_count], fission_values[:fission_segment_count]
