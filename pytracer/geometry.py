@@ -13,7 +13,9 @@ def normal(segments, midpoint_origin=False):
     dx = segments[:, 0, 1] - segments[:, 1, 1]
     dy = segments[:, 1, 0] - segments[:, 0, 0]
     length = np.sqrt(dx ** 2 + dy ** 2)
-    normals = np.array([dx / length, dy / length])
+    normals = np.zeros((np.size(segments, 0), 2), dtype=segments.dtype)
+    normals[:, 0] = dx / length
+    normals[:, 1] = dy / length
     if midpoint_origin:
         normals += center(segments)
     return normals
@@ -174,13 +176,13 @@ def draw(solids, show_normals=False):
         color = solid.in_material.color
         xs = np.ravel(solid.segments[:, :, 0])
         ys = np.ravel(solid.segments[:, :, 1])
-        plt.fill(xs, ys, color=color)
+        plt.fill(xs, ys, color=color, zorder=1)
 
         if show_normals:
             normals = normal(solid.segments)
             centers = center(solid.segments)
             for (norm, cent) in zip(normals, centers):
-                plt.arrow(cent[0], cent[1], norm[0], norm[1], width=0.01, color=color)
+                plt.arrow(cent[0], cent[1], norm[0], norm[1], width=0.01, color=color, zorder=10)
 
 
 def flatten(solids):

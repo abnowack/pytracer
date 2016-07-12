@@ -13,15 +13,14 @@ if __name__ == '__main__':
     geo.draw(assembly_solids)
 
     radians = np.linspace(0, np.pi, 10)
-    arc_radians = np.linspace(-np.pi / 8, np.pi / 8, 10)
+    arc_radians = np.linspace(-np.pi / 8, np.pi / 8, 10) / 4
     start, end, extent = geo.fan_beam_paths(60, arc_radians, radians, extent=True)
     for (s, e) in zip(start[:, 0], end[:, 0]):
-        plt.plot([s[0], e[0]], [s[1], e[1]], color='blue')
+        plt.plot([s[0], e[0]], [s[1], e[1]], color='blue', ls='dotted')
 
     for i, (s, e) in enumerate(zip(start[:, 0], end[:, 0])):
-        foo, bar = fission.find_fission_segments(s, e, assembly_flat)
-        print(foo)
-        if foo is not None:
-            plt.scatter(foo[:, :, 0], foo[:, :, 1])
+        segments, values = fission.find_fission_segments(s, e, assembly_flat)
+        for (segment, value) in zip(segments, values):
+            plt.plot(segment[:, 0], segment[:, 1], color='black')
 
     plt.show()

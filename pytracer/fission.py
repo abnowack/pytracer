@@ -6,9 +6,9 @@ _fission_segment_cache = np.empty((100, 2, 2), dtype=np.double)
 _fission_value_cache = np.empty(100, dtype=np.int)
 
 
-def point_is_inner_segment_side(x, y, segments):
-    return (x - segments[:, 0, 1]) * (segments[:, 0, 1] - segments[:, 1, 1]) - (y - segments[:, 0, 1]) * (
-        segments[:, 0, 0] - segments[:, 1, 0])
+def point_is_outer_segment_side(x, y, segments):
+    return (x - segments[:, 0, 0]) * (segments[:, 0, 1] - segments[:, 1, 1]) - (y - segments[:, 0, 1]) * (
+        segments[:, 0, 0] - segments[:, 1, 0]) > 0
 
 
 def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_values=None):
@@ -17,55 +17,58 @@ def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_
     if fission_values is None:
         fission_values = _fission_value_cache
 
-    fission_segment_count = 0
+    segment_count = 0
     intersects, indexes = transmission.intersections(start, end, flat_geom.segments)
     if np.size(intersects, 0) == 0:
-        return None, None
+        return fission_segments[:0], fission_values[:0]
 
-    # get locations where intersections are on segments containing a fissionable material
-    is_fission_boundary = np.where(flat_geom.fission[indexes] > 0)[0]  # checks inner and outer
-    f_intersects = intersects[is_fission_boundary]
-    f_indexes = indexes[is_fission_boundary]
-
-    if np.size(f_intersects, 0) == 0:
-        return None, None
-
-    # sort by distance from start point
-    distances = np.sum((f_intersects - start) ** 2, axis=1)
+    # sort intercepts by distance
+    distances = np.sum((intersects - start) ** 2, axis=1)
     distance_order = np.argsort(distances)
-    f_intersects = f_intersects[distance_order]
-    f_indexes = f_indexes[distance_order]
+    intersects = intersects[distance_order]
+    indexes = indexes[distance_order]
+    value = flat_geom.fission[indexes]
+    start_on_outer_side = point_is_outer_segment_side(start[0], start[1], flat_geom.segments[indexes])
 
-    f_value = flat_geom.fission[f_indexes]
-    f_norms = geo.normal(flat_geom.segments[f_indexes])
-    f_dot = np.sign(point_is_inner_segment_side(start[0], start[1], flat_geom.segments[f_indexes]))
+    # test if [start, intersect[0]] is fissionable path
+    if start_on_outer_side[0] and value[0, 0] > 0:
+        fission_segments[segment_count] = [start, intersects[0]]
+        fission_values[segment_count] = value[0, 0]
+        segment_count += 1
+    elif not start_on_outer_side[0] and value[0, 1] > 0:
+        fission_segments[segment_count] = [start, intersects[0]]
+        fission_values[segment_count] = value[0, 1]
+        segment_count += 1
 
-    # determine if start begins in a fissionable material
-    if f_dot[0] > 0 and f_value[0, 0] > 0:
-        fission_segments[fission_segment_count] = [start, f_intersects[0]]
-        fission_values[fission_segment_count] = f_value[0, 0]
-        fission_segment_count += 1
-    elif f_dot[0] < 0 and f_value[0, 1] > 0:
-        fission_segments[fission_segment_count] = [start, f_intersects[0]]
-        fission_values[fission_segment_count] = f_value[0, 1]
-        fission_segment_count += 1
+    # test all intervening segments
+    for i in range(np.size(intersects, 0) - 1):
+        if start_on_outer_side[i] and value[i, 0] > 0:
+            if start_on_outer_side[i + 1] and value[i + 1, 1] > 0:
+                fission_segments[segment_count] = [intersects[i], intersects[i + 1]]
+                fission_values[segment_count] = value[i, 1]
+                segment_count += 1
+            elif not start_on_outer_side[i + 1] and value[i + 1, 0] > 0:
+                fission_segments[segment_count] = [intersects[i], intersects[i + 1]]
+                fission_values[segment_count] = value[i, 1]
+                segment_count += 1
+        elif not start_on_outer_side[i] and value[i, 0] > 0:
+            if start_on_outer_side[i + 1] and flat_geom.fission[i + 1, 1] > 0:
+                fission_segments[segment_count] = [intersects[i], intersects[i + 1]]
+                fission_values[segment_count] = value[i, 1]
+                segment_count += 1
+            elif not start_on_outer_side[i + 1] and value[i + 1, 0] > 0:
+                fission_segments[segment_count] = [intersects[i], intersects[i + 1]]
+                fission_values[segment_count] = value[i, 1]
+                segment_count += 1
 
-    # iterate through pairs of points, determine if they are a fissionable segment
-    for i in range(1, np.size(f_indexes) - 1):
-        if (f_dot[i] > 0 and f_value[i, 1] > 0) or (f_dot[i] < 0 and f_value[i, 0] > 0):
-            if (f_dot[i + 1] > 0 and f_value[i + 1, 0] > 0) or (f_dot[i + 1] < 0 and f_value[i + 1, 1] > 0):
-                fission_segments[fission_segment_count] = [f_intersects[i], f_intersects[i + 1]]
-                fission_values[fission_segment_count] = f_value[i, 1]
-                fission_segment_count += 1
+    # test if [intersect[-1], end] is fissionable path
+    if start_on_outer_side[-1] and value[-1, 0] > 0:
+        fission_segments[segment_count] = [intersects[-1], end]
+        fission_values[segment_count] = value[-1, 0]
+        segment_count += 1
+    elif not start_on_outer_side[-1] and value[-1, 1] > 0:
+        fission_segments[segment_count] = [intersects[-1], end]
+        fission_values[segment_count] = value[-1, 1]
+        segment_count += 1
 
-    # determine if end terminates in a fissionable material
-    if f_dot[-1] > 0 and f_value[-1, 1] > 0:
-        fission_segments[fission_segment_count] = [f_intersects[-1], end]
-        fission_values[fission_segment_count] = f_value[-1, 1]
-        fission_segment_count += 1
-    elif f_dot[-1] < 0 and f_value[-1, 0] > 0:
-        fission_segments[fission_segment_count] = [f_intersects[-1], end]
-        fission_values[fission_segment_count] = f_value[-1, 0]
-        fission_segment_count += 1
-
-    return fission_segments[:fission_segment_count], fission_values[:fission_segment_count]
+    return fission_segments[:segment_count], fission_values[:segment_count]
