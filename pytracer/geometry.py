@@ -166,9 +166,9 @@ def fan_beam_paths(diameter, arc_radians, radians, extent=False):
         return start, end
 
 
-Material = namedtuple('Material', 'color attenuation fission')
+Material = namedtuple('Material', 'color absorbance fission')
 Solid = namedtuple('Solid', 'segments in_material out_material')
-FlatGeometry = namedtuple('FlatGeometry', 'segments attenuation fission')
+FlatGeometry = namedtuple('FlatGeometry', 'segments absorbance fission')
 
 
 def draw(solids, show_normals=False):
@@ -191,14 +191,14 @@ def flatten(solids):
         num_total_segments += len(solid.segments)
 
     flat_geom = FlatGeometry(segments=np.zeros((num_total_segments, 2, 2)),
-                             attenuation=np.zeros((num_total_segments, 2)),
+                             absorbance=np.zeros((num_total_segments, 2)),
                              fission=np.zeros((num_total_segments, 2)))
 
     index = 0
     for solid in solids:
         solid_slice = slice(index, index + len(solid.segments))
         flat_geom.segments[solid_slice] = solid.segments
-        flat_geom.attenuation[solid_slice] = [solid.in_material.attenuation, solid.out_material.attenuation]
+        flat_geom.absorbance[solid_slice] = [solid.in_material.absorbance, solid.out_material.absorbance]
         flat_geom.fission[solid_slice] = [solid.in_material.fission, solid.out_material.fission]
         index += len(solid.segments)
 

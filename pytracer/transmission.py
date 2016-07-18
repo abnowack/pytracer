@@ -17,40 +17,52 @@ def intersections(start, end, segments, intersect_cache=None, index_cache=None, 
     return intersect_cache[:num_intersects], index_cache[:num_intersects]
 
 
-def attenuation(start, end, segments, seg_attenuation, universe_attenuation=0.0,
+def absorbance(start, end, segments, seg_absorbance, universe_absorbance=0.0,
+               intersect_cache=None, index_cache=None):
+    if intersect_cache is None:
+        intersect_cache = _intersect_cache
+    if index_cache is None:
+        index_cache = _index_cache
+
+    return trans_c.absorbance(start, end, segments, seg_absorbance, universe_absorbance,
+                              intersect_cache, index_cache)
+
+
+def attenuation(start, end, segments, seg_absorbance, universe_absorbance=0.0,
                 intersect_cache=None, index_cache=None):
+    return np.exp(-absorbance(**locals()))
+
+
+def absorbances(start, end, segments, seg_absorbance, universe_absorbance=0.0,
+                intersect_cache=None, index_cache=None, absorbance_cache=None):
     if intersect_cache is None:
         intersect_cache = _intersect_cache
     if index_cache is None:
         index_cache = _index_cache
+    if absorbance_cache is None:
+        absorbance_cache = np.zeros(len(start), dtype=np.double)
 
-    return trans_c.attenuation(start, end, segments, seg_attenuation, universe_attenuation,
-                               intersect_cache, index_cache)
+    trans_c.absorbances(start, end, segments, seg_absorbance, universe_absorbance,
+                        intersect_cache, index_cache, absorbance_cache)
+
+    return absorbance_cache
 
 
-def attenuations(start, end, segments, seg_attenuation, universe_attenuation=0.0,
-                 intersect_cache=None, index_cache=None, attenuation_cache=None):
-    if intersect_cache is None:
-        intersect_cache = _intersect_cache
-    if index_cache is None:
-        index_cache = _index_cache
-    if attenuation_cache is None:
-        attenuation_cache = np.zeros(len(start), dtype=np.double)
-
-    trans_c.attenuations(start, end, segments, seg_attenuation, universe_attenuation,
-                         intersect_cache, index_cache, attenuation_cache)
-
-    return attenuation_cache
+def attenuations(start, end, segments, seg_absorbance, universe_absorbance=0.0,
+                 intersect_cache=None, index_cache=None, absorbance_cache=None):
+    absorb = absorbances(**locals())
+    np.exp(-absorb, absorb)
+    return absorb
 
 
 def scan(flat_geom, start, end):
-    atten = np.zeros((start.shape[:-1]), dtype=np.double)
+    absorb = np.zeros((start.shape[:-1]), dtype=np.double)
     flat_start = start.reshape(-1, start.shape[-1])
     flat_end = end.reshape(-1, end.shape[-1])
 
-    attenuations(flat_start, flat_end, flat_geom.segments, flat_geom.attenuation, 0, attenuation_cache=atten.ravel())
+    absorbances(flat_start, flat_end, flat_geom.segments, flat_geom.absorbance, 0, absorbance_cache=absorb.ravel())
 
-    return atten
+    return absorb
 
 
 def grid_response(flat_geom, grid, start, end):
@@ -69,6 +81,6 @@ def grid_response(flat_geom, grid, start, end):
         cell_flat = geo.flatten(cell_geom)
 
         attenuations(flat_start, flat_end, cell_flat.segments, cell_flat.attenuation,
-                     attenuation_cache=response[i, :])
+                     absorbance_cache=response[i, :])
 
     return response.reshape(response_shape)

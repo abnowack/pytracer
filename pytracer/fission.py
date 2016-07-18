@@ -87,8 +87,8 @@ def probability_detect(fission_position, flat_geom, detector_segments):
     end_positions = geo.center(detector_segments)
     start_positions = np.tile(fission_position, (len(end_positions), 1))
     out_attenuations = transmission.attenuations(start_positions, end_positions, flat_geom.segments,
-                                                 flat_geom.attenuation)
-    exit_prob = np.exp(-out_attenuations)
+                                                 flat_geom.absorbance)
+    exit_prob = out_attenuations
 
     # calc solid angle of detector from fission_point
     solid_angles = geo.solid_angle(detector_segments, fission_position)
@@ -100,8 +100,8 @@ def probability_detect(fission_position, flat_geom, detector_segments):
 
 
 def probability_in(source, fission_position, flat_geom):
-    prob_atten = transmission.attenuation(source, fission_position, flat_geom.segments, flat_geom.attenuation)
-    return np.exp(-prob_atten)
+    prob_atten = transmission.attenuation(source, fission_position, flat_geom.segments, flat_geom.absorbance)
+    return prob_atten
 
 
 def probability_out_single(fission_position, flat_geom, detector_segments, avg_nu):

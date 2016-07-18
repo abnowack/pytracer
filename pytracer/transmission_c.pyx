@@ -53,13 +53,13 @@ cpdef int intersections(double[::1] start, double[::1] end, double[:, :, ::1] se
 @cdivision(True)
 @boundscheck(False)
 @wraparound(False)
-cpdef double attenuation(double[::1] start, double[::1] end,
-                         double[:, :, ::1] segments, double[:, ::1] seg_attenuation,
-                         double universe_attenuation, double[:, ::1] intersect_cache,
-                         int[::1] index_cache):
+cpdef double absorbance(double[::1] start, double[::1] end,
+                        double[:, :, ::1] segments, double[:, ::1] seg_absorption,
+                        double universe_absorption, double[:, ::1] intersect_cache,
+                        int[::1] index_cache):
     cdef:
         int num_intersect = 0
-        double attenuation = 0
+        double absorbance = 0
         double current_distance = 0, min_distance = 1e15
         double tmp, tmp2
         int i, ci
@@ -70,10 +70,10 @@ cpdef double attenuation(double[::1] start, double[::1] end,
     if num_intersect == 0:
         num_intersect = intersections(start, end, segments, intersect_cache, index_cache, ray=True)
 
-    # No intersection through a ray, must be outside the object, return attenuation from universe material
+    # No intersection through a ray, must be outside the object, return absorbance from universe material
     if num_intersect == 0:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * universe_attenuation
-        return attenuation
+        absorbance = distance(start[0], start[1], end[0], end[1]) * universe_absorption
+        return absorbance
 
     for i in range(num_intersect):
         current_distance = distance(intersect_cache[i, 0], intersect_cache[i, 1], start[0], start[1])
@@ -84,30 +84,30 @@ cpdef double attenuation(double[::1] start, double[::1] end,
     tmp = sign_line(start[0], start[1], segments[ci, 0, 0], segments[ci, 0, 1], segments[ci, 1, 0], segments[ci, 1, 1])
 
     if tmp > 0:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * seg_attenuation[ci, 1]
+        absorbance = distance(start[0], start[1], end[0], end[1]) * seg_absorption[ci, 1]
     else:
-        attenuation = distance(start[0], start[1], end[0], end[1]) * seg_attenuation[ci, 0]
+        absorbance = distance(start[0], start[1], end[0], end[1]) * seg_absorption[ci, 0]
 
-    # Had intersections, so add up all individual attenuations between start and end
+    # Had intersections, so add up all individual absorptions between start and end
     for i in range(num_intersect):
         ci = index_cache[i]
         tmp = sign_line(start[0], start[1], segments[ci, 0, 0], segments[ci, 0, 1], segments[ci, 1, 0], segments[ci, 1, 1])
-        tmp2 = distance(intersect_cache[i, 0], intersect_cache[i, 1], end[0], end[1]) * (seg_attenuation[ci, 0] - seg_attenuation[ci, 1])
+        tmp2 = distance(intersect_cache[i, 0], intersect_cache[i, 1], end[0], end[1]) * (seg_absorption[ci, 0] - seg_absorption[ci, 1])
         if tmp > 0:
-            attenuation += tmp2
+            absorbance += tmp2
         else:
-            attenuation -= tmp2
-    return attenuation
+            absorbance -= tmp2
+    return absorbance
 
 @boundscheck(False)
 @wraparound(False)
-cpdef void attenuations(double[:, ::1] start, double[:, ::1] end,
-                        double[:, :, ::1] segments, double[:, ::1] seg_attenuation,
-                        double universe_attenuation, double[:, ::1] intersects_cache,
-                        int[::1] indexes_cache, double[:] attenuation_cache):
+cpdef void absorbances(double[:, ::1] start, double[:, ::1] end,
+                       double[:, :, ::1] segments, double[:, ::1] seg_absorption,
+                       double universe_absorption, double[:, ::1] intersects_cache,
+                       int[::1] indexes_cache, double[:] absorbance_cache):
     cdef:
         int i
 
     for i in range(start.shape[0]):
-        attenuation_cache[i] = attenuation(start[i], end[i], segments, seg_attenuation, universe_attenuation,
-                                           intersects_cache, indexes_cache)
+        absorbance_cache[i] = absorbance(start[i], end[i], segments, seg_absorption, universe_absorption,
+                                         intersects_cache, indexes_cache)
