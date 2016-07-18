@@ -13,6 +13,6 @@ setup(
     version='0.1dev',
     package_dir={'pytracer': 'pytracer'},
     packages=['pytracer'],
-    ext_modules=cythonize('pytracer/transmission_c.pyx', 'pytracer/fission_c.pyx'),
+    ext_modules=cythonize('pytracer/transmission_c.pyx'),
     include_dirs=[numpy.get_include()]
 )
