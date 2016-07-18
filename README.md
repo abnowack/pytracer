@@ -2,7 +2,7 @@
 Raytracing program written in Python, applying CT reconstruction methods
 
 TODO :
-- [ ] Fix attenuation giving incorrect sign
+- [x] Fix attenuation giving incorrect sign
 - [ ] Convert fission.py to Cython
 - [ ] Fast scan methods for doing singles and doubles measurements easily
 - [ ] Create single fission response

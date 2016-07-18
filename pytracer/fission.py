@@ -86,8 +86,8 @@ def probability_detect(fission_position, flat_geom, detector_segments):
     # could calc the average over a segment if attenuation varies enough over the segment
     end_positions = geo.center(detector_segments)
     start_positions = np.tile(fission_position, (len(end_positions), 1))
-    out_attenuations = np.abs(transmission.attenuations(start_positions, end_positions, flat_geom.segments,
-                                                        flat_geom.attenuation))
+    out_attenuations = transmission.attenuations(start_positions, end_positions, flat_geom.segments,
+                                                 flat_geom.attenuation)
     exit_prob = np.exp(-out_attenuations)
 
     # calc solid angle of detector from fission_point
@@ -100,17 +100,14 @@ def probability_detect(fission_position, flat_geom, detector_segments):
 
 
 def probability_in(source, fission_position, flat_geom):
-    # TODO: FIX
-    prob_atten = np.exp(
-        -np.abs(transmission.attenuation(source, fission_position, flat_geom.segments, flat_geom.attenuation)))
-    # prob_atten = transmission.attenuation(source, fission_position, flat_geom.segments, flat_geom.attenuation)
-    return prob_atten
+    prob_atten = transmission.attenuation(source, fission_position, flat_geom.segments, flat_geom.attenuation)
+    return np.exp(-prob_atten)
 
 
 def probability_out_single(fission_position, flat_geom, detector_segments, avg_nu):
     prob_detect = probability_detect(fission_position, flat_geom, detector_segments)
     prob_out_single = np.exp(-prob_detect * avg_nu) * prob_detect * avg_nu
-    return np.abs(prob_out_single)  # TODO: FIX
+    return prob_out_single
 
 
 def probability_per_ds_neutron_single(source, fission_position, flat_geom, mu_fission, detector_segments, avg_nu):

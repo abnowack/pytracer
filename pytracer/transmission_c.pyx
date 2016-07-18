@@ -42,7 +42,7 @@ cpdef int intersections(double[::1] start, double[::1] end, double[:, :, ::1] se
         u = u / denom
 
         if -epsilon < t < 1. - epsilon:
-            if (not ray) or 0. < u <= 1.:
+            if (ray) or 0. < u <= 1.:
                 intersect_cache[num_intersect, 0] = segments[i, 0, 0] + t * r[0]
                 intersect_cache[num_intersect, 1] = segments[i, 0, 1] + t * r[1]
                 index_cache[num_intersect] = i
