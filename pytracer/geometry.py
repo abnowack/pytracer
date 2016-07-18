@@ -27,7 +27,7 @@ def solid_angle(segments, point):
     b = np.linalg.norm(segments[:, 1] - point, axis=1)
     c = np.linalg.norm(segments[:, 0] - segments[:, 1], axis=1)
 
-    num = a ** 2 + b ** 2 + c ** 2
+    num = a ** 2 + b ** 2 - c ** 2
     denom = 2 * a * b
     angle = np.arccos(np.abs(num / denom))
     is_greater_halfpi = angle > np.pi / 2

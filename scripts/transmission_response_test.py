@@ -19,8 +19,8 @@ if __name__ == "__main__":
     radians = np.linspace(0, np.pi, 100)
     start, end, extent = geo.parallel_beam_paths(height=30, num_projections=200, offset=30, radians=radians,
                                                  extent=True)
-    for (s, e) in zip(start[:, 0], end[:, 0]):
-        plt.plot([s[0], e[0]], [s[1], e[1]], color='blue')
+    # for (s, e) in zip(start[:, 0], end[:, 0]):
+    #     plt.plot([s[0], e[0]], [s[1], e[1]], color='blue')
 
     measurement = transmission.scan(assembly_flat, start, end)
 
