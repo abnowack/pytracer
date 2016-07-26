@@ -22,28 +22,33 @@ if __name__ == "__main__":
     grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
     grid.draw()
 
-    # i = 109
-    # grid_points = grid.cell(i)
-    # plt.scatter(grid_points[:, 0], grid_points[:, 1], zorder=12)
-    # print(grid_points)
-    #
-    # unit_m = geo.Material('black', 1, 1)
-    # vacuum = geo.Material('white', 0, 0)
-    # cell_geom = [geo.Solid(geo.convert_points_to_segments(grid.cell(i)), unit_m, vacuum)]
-    # cell_flat = geo.flatten(cell_geom)
-    #
-    # p = fission.grid_response_single_scan(source, detector_points, detector_points, cell_flat, assembly_flat, 0.2)
+    cell_i = 109
+    grid_points = grid.cell(cell_i)
+    plt.scatter(grid_points[:, 0], grid_points[:, 1], zorder=12)
 
-    # response = fission.grid_response_single(source, detector_points, detector_points, grid, assembly_flat, 0.2)
-    # np.save('fission_response', response)
-    response = np.load('fission_response.npy')
+    # response_single = fission.grid_response_single(source, detector_points, detector_points, grid, assembly_flat, 0.2)
+    # np.save('fission_response_single', response)
+    response_single = np.load('fission_response_single.npy')
 
-    # plt.figure()
-    # plt.imshow(response[109].T, interpolation='none', extent=extent)
+    plt.figure()
+    plt.imshow(response_single[cell_i].T, interpolation='none', extent=extent)
+    plt.title('Single Fission Response')
+
+    # response_double = fission.grid_response_double(source, detector_points, detector_points, grid, assembly_flat, 0.2)
+    # np.save('fission_response_double', response_double)
+    response_double = np.load('fission_response_double.npy')
+
+    plt.figure()
+    plt.imshow(response_double[cell_i].T, interpolation='none', extent=extent)
+    plt.title('Double Fission Response')
 
     # single_probs = fission.scan_single(source, detector_points, detector_points, assembly_flat, 0.2)
     # np.save('single_probs', single_probs)
     single_probs = np.load('single_probs.npy')
+
+    # double_probs = fission.scan_double(source, detector_points, detector_points, assembly_flat, 0.2)
+    # np.save('double_probs', double_probs)
+    double_probs = np.load('double_probs.npy')
 
     plt.figure()
     plt.imshow(single_probs.T, interpolation='none', extent=extent)
@@ -53,9 +58,26 @@ if __name__ == "__main__":
     plt.ylabel('Relative Neutron Angle')
     plt.tight_layout()
 
-    recon = algorithms.solve_tikhonov(single_probs.T, response.T, alpha=1500)
-    recon = recon.reshape(grid.num_y, grid.num_x)
     plt.figure()
-    plt.imshow(recon, interpolation='none', aspect='auto')
+    plt.imshow(double_probs.T, interpolation='none', extent=extent)
+    plt.colorbar()
+    plt.title('Double Neutron Probability')
+    plt.xlabel('Detector Orientation')
+    plt.ylabel('Relative Neutron Angle')
+    plt.tight_layout()
+
+    alpha = 1500
+
+    recon_single = algorithms.solve_tikhonov(single_probs.T, response_single.T, alpha=alpha)
+    recon_single = recon_single.reshape(grid.num_y, grid.num_x)
+    plt.figure()
+    plt.imshow(recon_single, interpolation='none', aspect='auto')
+    plt.title('Single Reconstruction')
+
+    recon_double = algorithms.solve_tikhonov(double_probs.T, response_double.T, alpha=alpha)
+    recon_double = recon_double.reshape(grid.num_y, grid.num_x)
+    plt.figure()
+    plt.imshow(recon_double, interpolation='none', aspect='auto')
+    plt.title('Double Reconstruction')
 
     plt.show()

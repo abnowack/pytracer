@@ -9,8 +9,10 @@ if __name__ == '__main__':
     assembly_solids = shielded_assembly()
     assembly_flat = geo.flatten(assembly_solids)
 
+    print(assembly_flat.segments)
+
     plt.figure()
-    geo.draw(assembly_solids)
+    geo.draw(assembly_solids, True)
 
     radians = np.linspace(0, np.pi, 10)
     arc_radians = np.linspace(-np.pi / 8, np.pi / 8, 10) / 4
@@ -21,6 +23,6 @@ if __name__ == '__main__':
     for i, (s, e) in enumerate(zip(start[:, 0], end[:, 0])):
         segments, values = fission.find_fission_segments(s, e, assembly_flat)
         for (segment, value) in zip(segments, values):
-            plt.plot(segment[:, 0], segment[:, 1], color='black')
+            plt.plot(segment[:, 0], segment[:, 1], color='black', zorder=15)
 
     plt.show()

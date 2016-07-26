@@ -21,8 +21,8 @@ def break_segment_into_points(segment, num_points=5, epsilon=1e-6):
 
 
 def point_is_outer_segment_side(x, y, segments):
-    return (x - segments[:, 0, 0]) * (segments[:, 0, 1] - segments[:, 1, 1]) - (y - segments[:, 0, 1]) * (
-        segments[:, 0, 0] - segments[:, 1, 0]) > 0
+    return (x - segments[:, 0, 0]) * (segments[:, 0, 1] - segments[:, 1, 1]) + (y - segments[:, 0, 1]) * (
+        segments[:, 1, 0] - segments[:, 0, 0]) > 0
 
 
 def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_values=None):
@@ -45,11 +45,11 @@ def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_
     start_on_outer_side = point_is_outer_segment_side(start[0], start[1], flat_geom.segments[indexes])
 
     # test if [start, intersect[0]] is fissionable path
-    if start_on_outer_side[0] and value[0, 0] > 0:
+    if start_on_outer_side[0] and value[0, 1] > 0:
         fission_segments[segment_count] = [start, intersects[0]]
         fission_values[segment_count] = value[0, 0]
         segment_count += 1
-    elif not start_on_outer_side[0] and value[0, 1] > 0:
+    elif not start_on_outer_side[0] and value[0, 0] > 0:
         fission_segments[segment_count] = [start, intersects[0]]
         fission_values[segment_count] = value[0, 1]
         segment_count += 1
@@ -65,7 +65,7 @@ def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_
                 fission_segments[segment_count] = [intersects[i], intersects[i + 1]]
                 fission_values[segment_count] = value[i + 1, 0]
                 segment_count += 1
-        elif not start_on_outer_side[i] and value[i, 0] > 0:
+        elif not start_on_outer_side[i] and value[i, 1] > 0:
             if start_on_outer_side[i + 1] and value[i + 1, 1] > 0:
                 fission_segments[segment_count] = [intersects[i], intersects[i + 1]]
                 fission_values[segment_count] = value[i + 1, 1]

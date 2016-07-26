@@ -10,7 +10,8 @@ def shielded_assembly(fission=False):
 
     box = geo.create_hollow(geo.create_rectangle(20, 10), geo.create_rectangle(18, 8))
 
-    hollow_circle = geo.create_hollow(geo.create_arc(3.9), geo.create_arc(2.9))
+    hollow_circle = geo.create_hollow(geo.create_circle(3.9), geo.create_circle(2.9))
+    # hollow_circle = geo.create_arc(3.9)
     geo.translate(hollow_circle, [-9 + 3.9 + 0.1, 0.])
 
     small_box_1 = geo.create_rectangle(2, 2)
@@ -21,6 +22,8 @@ def shielded_assembly(fission=False):
 
     solids = [geo.Solid(box, steel, air), geo.Solid(hollow_circle, u235_metal, air),
               geo.Solid(small_box_1, poly, air), geo.Solid(small_box_2, steel, air)]
+    # solids = [geo.Solid(hollow_circle, u235_metal, air), geo.Solid(small_box_1, poly, air),
+    #           geo.Solid(small_box_2, steel, air)]
 
     return solids
 

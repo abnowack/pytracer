@@ -10,7 +10,7 @@ if __name__ == "__main__":
     end = np.array([20., 10.])
 
     plt.figure()
-    geo.draw(assembly_solids)
+    geo.draw(assembly_solids, show_normals=True)
     plt.plot([start[0], end[0]], [start[1], end[1]])
 
     assembly_flat = geo.flatten(assembly_solids)

@@ -30,7 +30,7 @@ if __name__ == "__main__":
     plt.imshow(response[100, :, :], interpolation='none', extent=extent, aspect='auto')
 
     # reconstruction
-    for alpha in [500, 1000, 1500, 2000, 2500]:
+    for alpha in [1, 10, 100, 1000]:
         recon = algorithms.solve_tikhonov(measurement.T, response.T, alpha=alpha)
         recon = recon.reshape(grid.num_y, grid.num_x)
         plt.figure()

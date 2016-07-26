@@ -13,7 +13,7 @@ cdef inline double distance(double x1, double y1, double x2, double y2):
     return sqrt(tmp)
 
 cdef inline double sign_line(double x, double y, double x1, double y1, double x2, double y2):
-    return (x - x1) * (y1 - y2) - (y - y1) * (x1 - x2)
+    return (x - x1) * (y1 - y2) + (y - y1) * (x2 - x1)
 
 # TODO Make this more safe if intersects or indexes isn't passed correctly
 @cdivision(True)

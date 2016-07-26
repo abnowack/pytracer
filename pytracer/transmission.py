@@ -114,10 +114,10 @@ def grid_response(flat_geom, grid, start, end):
     response = response.reshape((response.shape[0], response.shape[1] * response.shape[2]))
 
     for i in range(grid.num_cells):
-        cell_geom = [geo.Solid(geo.convert_points_to_segments(grid.cell(i)), unit_m, vacuum)]
+        cell_geom = [geo.Solid(geo.convert_points_to_segments(grid.cell(i), circular=True), unit_m, vacuum)]
         cell_flat = geo.flatten(cell_geom)
 
-        attenuations(flat_start, flat_end, cell_flat.segments, cell_flat.attenuation,
-                     absorbance_cache=response[i, :])
+        absorbances(flat_start, flat_end, cell_flat.segments, cell_flat.absorbance,
+                    absorbance_cache=response[i, :])
 
     return response.reshape(response_shape)

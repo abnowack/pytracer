@@ -10,12 +10,12 @@ def center(segments):
 
 def normal(segments, midpoint_origin=False):
     """Calculates a normal vector to segment."""
-    dx = segments[:, 0, 1] - segments[:, 1, 1]
-    dy = segments[:, 1, 0] - segments[:, 0, 0]
-    length = np.sqrt(dx ** 2 + dy ** 2)
     normals = np.zeros((np.size(segments, 0), 2), dtype=segments.dtype)
-    normals[:, 0] = dx / length
-    normals[:, 1] = dy / length
+    normals[:, 0] = -(segments[:, 1, 1] - segments[:, 0, 1])
+    normals[:, 1] = segments[:, 1, 0] - segments[:, 0, 0]
+    length = np.sqrt(normals[:, 0] ** 2 + normals[:, 1] ** 2)
+    normals = normals / length[:, np.newaxis]
+
     if midpoint_origin:
         normals += center(segments)
     return normals
@@ -41,13 +41,26 @@ def rotation_matrix(radian):
     return np.array([[np.cos(radian), np.sin(radian)], [-np.sin(radian), np.cos(radian)]])
 
 
-def convert_points_to_segments(points):
+def convert_points_to_segments(points, circular=False):
     """Converts array of points into array of line segments."""
-    segments = np.zeros((len(points) - 1, 2, 2))
-    segments[:, :, 0][:, 0] = points[:, 0][:-1]
-    segments[:, :, 0][:, 1] = points[:, 0][1:]
-    segments[:, :, 1][:, 0] = points[:, 1][:-1]
-    segments[:, :, 1][:, 1] = points[:, 1][1:]
+    if not circular:
+        segments = np.zeros((len(points) - 1, 2, 2))
+        segments[:, 0, 0] = points[:-1, 0]
+        segments[:, 1, 0] = points[1:, 0]
+        segments[:, 0, 1] = points[:-1, 1]
+        segments[:, 1, 1] = points[1:, 1]
+    else:
+        segments = np.zeros((len(points), 2, 2))
+        segments[:-1, 0, 0] = points[:-1, 0]
+        segments[:-1, 1, 0] = points[1:, 0]
+        segments[:-1, 0, 1] = points[:-1, 1]
+        segments[:-1, 1, 1] = points[1:, 1]
+
+        segments[-1, 0, 0] = points[-1, 0]
+        segments[-1, 0, 1] = points[-1, 1]
+        segments[-1, 1, 0] = points[0, 0]
+        segments[-1, 1, 1] = points[0, 1]
+
     return segments
 
 
@@ -91,7 +104,7 @@ def rotate(segments, radian, pivot=None, out=None):
 
 
 def create_horizontal_line(width, num_segments):
-    points = np.zeros((num_segments, 2), dtype=np.float32)
+    points = np.zeros((num_segments + 1, 2), dtype=np.float32)
     points[:, 0] = np.linspace(-width / 2, width / 2, len(points))
     return convert_points_to_segments(points)
 
@@ -103,12 +116,19 @@ def create_vertical_line(height, num_segments):
 
 
 def create_arc(radius, begin_radian=0, end_radian=2 * np.pi, num_segments=20):
-    radians = np.linspace(begin_radian, end_radian, num_segments + 1)[:-1][::-1]
+    radians = np.linspace(begin_radian, end_radian, num_segments + 1)
     points = np.zeros((num_segments + 1, 2), dtype=np.float32)
     points[:-1, 0] = np.cos(radians) * radius
     points[:-1, 1] = np.sin(radians) * radius
-    points[-1] = points[0]
     return convert_points_to_segments(points)
+
+
+def create_circle(radius, num_segments=20):
+    radians = np.linspace(np.pi, -np.pi, num_segments + 1)[:-1]
+    points = np.zeros((num_segments, 2), dtype=np.float32)
+    points[:, 0] = np.cos(radians) * radius
+    points[:, 1] = np.sin(radians) * radius
+    return convert_points_to_segments(points, circular=True)
 
 
 def create_rectangle(width, height):
@@ -231,8 +251,13 @@ class Grid(object):
         ix = i % (np.size(self.points, 1) - 1)
         iy = i // (np.size(self.points, 1) - 1)
 
-        return np.array([self.points[iy, ix], self.points[iy + 1, ix],
-                         self.points[iy + 1, ix + 1], self.points[iy, ix + 1]])
+        grid_points = np.zeros((4, 2), dtype=np.double)
+        grid_points[0] = self.points[iy, ix]
+        grid_points[1] = self.points[iy, ix + 1]
+        grid_points[2] = self.points[iy + 1, ix + 1]
+        grid_points[3] = self.points[iy + 1, ix]
+
+        return grid_points
 
     def draw(self):
         for i in range(np.size(self.points, 1)):
