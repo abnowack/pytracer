@@ -196,7 +196,7 @@ def grid_response(source, neutron_paths, detector_points, grid, flat_geom, k, av
 
     for i in range(grid.num_cells):
         print(i, ' / ', grid.num_cells)
-        cell_geom = [geo.Solid(geo.convert_points_to_segments(grid.cell(i)), unit_m, vacuum)]
+        cell_geom = [geo.Solid(geo.convert_points_to_segments(grid.cell(i), circular=True), unit_m, vacuum)]
         cell_flat = geo.flatten(cell_geom)
 
         response[i, :, :] = grid_response_scan(source, neutron_paths, detector_points, cell_flat, flat_geom,

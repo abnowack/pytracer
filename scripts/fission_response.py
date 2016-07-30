@@ -39,9 +39,9 @@ if __name__ == "__main__":
     # np.save(r'data\fission_response_double', response_double)
     response_double = np.load(r'data\fission_response_double.npy')
 
-    # plt.figure()
-    # plt.imshow(response_double[cell_i].T, interpolation='none', extent=extent)
-    # plt.title('Double Fission Response')
+    plt.figure()
+    plt.imshow(response_double[cell_i].T, interpolation='none', extent=extent)
+    plt.title('Double Fission Response')
 
     # single_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 1, 0.2)
     # np.save(r'data\single_probs', single_probs)
@@ -51,13 +51,13 @@ if __name__ == "__main__":
     # np.save(r'data\double_probs', double_probs)
     double_probs = np.load(r'data\double_probs.npy')
 
-    # plt.figure()
-    # plt.imshow(single_probs.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    # plt.title('Single Neutron Probability')
-    # plt.xlabel('Detector Orientation')
-    # plt.ylabel('Relative Neutron Angle')
-    # plt.tight_layout()
+    plt.figure()
+    plt.imshow(single_probs.T, interpolation='none', extent=extent)
+    plt.colorbar()
+    plt.title('Single Neutron Probability')
+    plt.xlabel('Detector Orientation')
+    plt.ylabel('Relative Neutron Angle')
+    plt.tight_layout()
     #
     # plt.figure()
     # plt.imshow(double_probs.T, interpolation='none', extent=extent)
@@ -69,11 +69,11 @@ if __name__ == "__main__":
 
     # alpha = 0.001
     #
-    # recon_single = algorithms.solve_tikhonov(single_probs.T, response_single.T, alpha=0.1)
-    # recon_single = recon_single.reshape(grid.num_y, grid.num_x)
-    # plt.figure()
-    # plt.imshow(recon_single, interpolation='none', aspect='auto')
-    # plt.title('Single Reconstruction')
+    recon_single = algorithms.solve_tikhonov(single_probs.T, response_single.T, alpha=1)
+    recon_single = recon_single.reshape(grid.num_y, grid.num_x)
+    plt.figure()
+    plt.imshow(recon_single, interpolation='none', aspect='auto')
+    plt.title('Single Reconstruction')
     #
     # recon_double = algorithms.solve_tikhonov(double_probs.T, response_double.T, alpha=0.0006)
     # recon_double = recon_double.reshape(grid.num_y, grid.num_x)
