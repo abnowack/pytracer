@@ -4,6 +4,7 @@ import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
 import pytracer.transmission as transmission
+import pytracer.algorithms as algorithms
 import cProfile, pstats
 
 # 1    1.354    1.354    1.354    1.354 {built-in method pytracer.transmission_c.attenuations}
@@ -29,6 +30,10 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.imshow(radon)
+
+    # plt.figure()
+    # fbp = algorithms.filtered_back_projection(radon, radians)
+    # plt.imshow(fbp)
 
     pr.print_stats()
     plt.show()
