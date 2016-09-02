@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     cell_i = 109
     grid_points = grid.cell(cell_i)
-    plt.scatter(grid_points[:, 0], grid_points[:, 1], zorder=12)
+    plt.fill(grid_points[:, 0], grid_points[:, 1], color='red', alpha=0.5, zorder=12)
 
     # response_single = fission.grid_response(source, detector_points, detector_points, grid, assembly_flat, 1, 0.2)
     # np.save(r'data\fission_response_single', response_single)
@@ -59,26 +59,28 @@ if __name__ == "__main__":
     plt.ylabel('Relative Neutron Angle')
     plt.tight_layout()
     #
-    # plt.figure()
-    # plt.imshow(double_probs.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    # plt.title('Double Neutron Probability')
-    # plt.xlabel('Detector Orientation')
-    # plt.ylabel('Relative Neutron Angle')
-    # plt.tight_layout()
+    plt.figure()
+    plt.imshow(double_probs.T, interpolation='none', extent=extent)
+    plt.colorbar()
+    plt.title('Double Neutron Probability')
+    plt.xlabel('Detector Orientation')
+    plt.ylabel('Relative Neutron Angle')
+    plt.tight_layout()
 
     # alpha = 0.001
     #
-    recon_single = algorithms.solve_tikhonov(single_probs.T, response_single.T, alpha=1)
+    recon_single = algorithms.solve_tikhonov_direct(single_probs.T, response_single.T, alpha=1)
     recon_single = recon_single.reshape(grid.num_y, grid.num_x)
     plt.figure()
     plt.imshow(recon_single, interpolation='none', aspect='auto')
+    plt.colorbar()
     plt.title('Single Reconstruction')
-    #
-    # recon_double = algorithms.solve_tikhonov(double_probs.T, response_double.T, alpha=0.0006)
-    # recon_double = recon_double.reshape(grid.num_y, grid.num_x)
-    # plt.figure()
-    # plt.imshow(recon_double, interpolation='none', aspect='auto')
-    # plt.title('Double Reconstruction')
+
+    recon_double = algorithms.solve_tikhonov_direct(double_probs.T, response_double.T, alpha=1)
+    recon_double = recon_double.reshape(grid.num_y, grid.num_x)
+    plt.figure()
+    plt.imshow(recon_double, interpolation='none', aspect='auto')
+    plt.colorbar()
+    plt.title('Double Reconstruction')
 
     plt.show()

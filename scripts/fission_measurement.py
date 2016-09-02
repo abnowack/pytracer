@@ -25,16 +25,16 @@ if __name__ == '__main__':
     plt.plot(detector_points[:, disp_angle, 0], detector_points[:, disp_angle, 1])
     plt.plot([source[disp_angle, 0], detector_points[source_disp_angle, disp_angle, 0]],
              [source[disp_angle, 1], detector_points[source_disp_angle, disp_angle, 1]])
-    plt.title('Detector Angle {d:.2f}, Neutron Angle {n:.2f}'.format(d=np.rad2deg(radians[disp_angle]),
-                                                                     n=np.rad2deg(arc_radians[source_disp_angle])))
+    plt.title('Detector Angle (rad) {d:.2f}, Neutron Angle (rad) {n:.2f}'.format(d=radians[disp_angle],
+                                                                                 n=arc_radians[source_disp_angle]))
 
     # calculate singles and doubles measurement scans
-    single_probs = fission.scan_single(source, detector_points, detector_points, assembly_flat, 0.2)
-    double_probs = fission.scan_double(source, detector_points, detector_points, assembly_flat, 0.2)
+    single_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 1, 0.2)
+    double_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 2, 0.2)
 
     plt.figure()
     plt.imshow(single_probs.T, interpolation='none', extent=extent)
-    plt.colorbar()
+    # plt.colorbar()
     plt.title('Single Neutron Probability')
     plt.xlabel('Detector Orientation')
     plt.ylabel('Relative Neutron Angle')
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     plt.figure()
     plt.imshow(double_probs.T, interpolation='none', extent=extent)
-    plt.colorbar()
+    # plt.colorbar()
     plt.title('Double Neutron Probability')
     plt.xlabel('Detector Orientation')
     plt.ylabel('Relative Neutron Angle')

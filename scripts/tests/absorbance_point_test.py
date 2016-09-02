@@ -29,4 +29,7 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.imshow(image.T, interpolation='none', extent=extent)
+    plt.colorbar()
+    plt.xlabel('X (cm)')
+    plt.ylabel('Y (cm)')
     plt.show()
