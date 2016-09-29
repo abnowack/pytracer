@@ -6,41 +6,17 @@ _intersect_cache = np.empty((100, 2), dtype=np.double)
 _index_cache = np.empty(100, dtype=np.int)
 
 
-def point_segment_distance(px, py, x0, x1, y0, y1):
-    length2 = (x1 - x0) ** 2 + (y1 - y0) ** 2
-    if length2 <= 0:
-        return np.sqrt((px - x0) ** 2 + (px - y0) ** 2)
-    t = ((px - x0) * (x1 - x0) + (py - y0) * (y1 - y0)) / length2
-    t = min(1, t)
-    t = max(0, t)
-    projection_x = x0 + t * (x1 - x0)
-    projection_y = y0 + t * (y1 - y0)
-    distance = np.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
-    return distance
+def absorbance_at_point(point, flat_geom):
+    return trans_c.absorbance_at_point(point[0], point[1], flat_geom.segments, flat_geom.absorbance)
 
 
-def sign_line(x, y, x1, y1, x2, y2):
-    return (x - x1) * (y1 - y2) - (y - y1) * (x1 - x2)
+def absorbance_image(xs, ys, flat_geom):
+    image = np.zeros((np.size(xs, 0), np.size(ys, 0)), dtype=np.double)
+    extent = [xs[0], xs[-1], ys[0], ys[-1]]
 
+    trans_c.absorbance_image(image, xs, ys, flat_geom.segments, flat_geom.absorbance)
 
-def find_absorbance_at_point(point, flat_geom):
-    """ Based on looking at segment with smallest distance """
-    min_dist_absorbance = None
-    min_distance = 1e99
-    for i in range(np.size(flat_geom.segments, 0)):
-        distance = point_segment_distance(point[0], point[1], flat_geom.segments[i, 0, 0], flat_geom.segments[i, 1, 0],
-                                          flat_geom.segments[i, 0, 1], flat_geom.segments[i, 1, 1])
-        if distance < min_distance:
-            min_distance = distance
-            is_outer = sign_line(point[0], point[1], flat_geom.segments[i, 0, 0], flat_geom.segments[i, 0, 1],
-                                 flat_geom.segments[i, 1, 0], flat_geom.segments[i, 1, 1])
-            if is_outer == 0:
-                min_dist_absorbance = (flat_geom.absorbance[i, 1] + flat_geom.absorbance[i, 0]) / 2
-            elif is_outer > 0:
-                min_dist_absorbance = flat_geom.absorbance[i, 1]
-            else:
-                min_dist_absorbance = flat_geom.absorbance[i, 0]
-    return min_dist_absorbance
+    return image, extent
 
 
 def intersections(start, end, segments, intersect_cache=None, index_cache=None, ray=False):

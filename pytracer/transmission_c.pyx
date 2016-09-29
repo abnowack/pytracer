@@ -15,6 +15,66 @@ cdef inline double distance(double x1, double y1, double x2, double y2):
 cdef inline double sign_line(double x, double y, double x1, double y1, double x2, double y2):
     return (x - x1) * (y1 - y2) + (y - y1) * (x2 - x1)
 
+@cdivision(True)
+cpdef point_segment_distance(double px, double py, double x0, double x1, double y0, double y1):
+    cdef:
+        double length_sq, t, projection_x, projection_y, distance
+
+    length_sq = (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0)
+    if length_sq <= 0:
+        distance = sqrt((px - x0) * (px - x0) + (py - y0) * (py - y0))
+        return distance
+
+    t = (px - x0) * (x1 - x0) + (py - y0) * (y1 - y0)
+    t /= length_sq
+    if t > 1:
+        t = 1
+    elif t < 0:
+        t = 0
+
+    projection_x = x0 + t * (x1 - x0)
+    projection_y = y0 + t * (y1 - y0)
+    distance = (px - projection_x) * (px - projection_x) + (py - projection_y) * (py - projection_y)
+    distance = sqrt(distance)
+    return distance
+
+
+@cdivision(True)
+@boundscheck(False)
+cpdef absorbance_at_point(double point_x, double point_y, double[:, :, ::1] segments, double[:, ::1] absorbance):
+    """ Based on looking at segment with smallest distance """
+    cdef:
+        double min_distance = 1e99
+        double distance
+        double is_outer
+        double point_absorbance = 0
+
+    for i in range(segments.shape[0]):
+        distance = point_segment_distance(point_x, point_y, segments[i, 0, 0], segments[i, 1, 0],
+                                          segments[i, 0, 1], segments[i, 1, 1])
+        if distance < min_distance:
+            min_distance = distance
+            is_outer = sign_line(point_x, point_y, segments[i, 0, 0], segments[i, 0, 1],
+                                 segments[i, 1, 0], segments[i, 1, 1])
+            if is_outer == 0:
+                point_absorbance = (absorbance[i, 1] + absorbance[i, 0]) / 2
+            elif is_outer > 0:
+                point_absorbance = absorbance[i, 1]
+            else:
+                point_absorbance = absorbance[i, 0]
+    return point_absorbance
+
+
+@cdivision(True)
+# @boundscheck(False)
+cpdef absorbance_image(double[:, ::1] image, double[::1] xs, double[::1] ys,
+                       double[:, :, ::1] segments, double[:, ::1] absorbance):
+
+    for i in range(xs.shape[0]):
+        for j in range(ys.shape[0]):
+            image[i, j] = absorbance_at_point(xs[i], ys[j], segments, absorbance)
+
+
 # TODO Make this more safe if intersects or indexes isn't passed correctly
 @cdivision(True)
 @boundscheck(False)
