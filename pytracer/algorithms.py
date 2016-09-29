@@ -33,6 +33,28 @@ def solve_tikhonov_direct(measurement, response, alpha=0):
     return recon
 
 
+def simultaneous_solve(measurement_1, response_1, measurement_2, response_2, alpha=0):
+    rr1 = response_1.reshape(-1, np.size(response_1, 2))
+    mm1 = measurement_1.reshape((-1))
+    rr2 = response_2.reshape(-1, np.size(response_1, 2))
+    mm2 = measurement_2.reshape((-1))
+
+    rr = np.concatenate((rr1, rr2))
+    mm = np.concatenate((mm1, 10000 * mm2))
+
+    lhs = np.dot(rr.T, rr)
+    rhs = np.dot(rr.T, mm)
+
+    # Apply Tikhonov Regularization with an L2 norm
+    gamma = np.identity(np.size(lhs, 0))
+    lhs += alpha * np.dot(gamma.T, gamma)
+    inv = np.linalg.inv(lhs)
+
+    recon = np.dot(inv, rhs)
+
+    return recon
+
+
 def trace_lcurve(measurement, response, alphas):
     rr = response.reshape(-1, np.size(response, 1) * np.size(response, 2))
     recon_norm = np.zeros(len(alphas))
@@ -57,6 +79,7 @@ def lcurve_curvature(x, y):
     denom = np.power(xdot * xdot + ydot * ydot, 1.5)
 
     return np.divide(num, denom)
+
 
 def filtered_back_projection(sinogram, radians):
     """
