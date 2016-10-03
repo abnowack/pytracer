@@ -4,6 +4,7 @@ import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
 import pytracer.fission as fission
+import cProfile, pstats
 
 if __name__ == '__main__':
     assembly_solids = shielded_assembly()
@@ -29,8 +30,13 @@ if __name__ == '__main__':
                                                                                  n=arc_radians[source_disp_angle]))
 
     # calculate singles and doubles measurement scans
+
+    # prorfile time
+    pr = cProfile.Profile()
+    pr.enable()
     single_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 1, 0.2)
     double_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 2, 0.2)
+    pr.disable()
 
     plt.figure()
     plt.imshow(single_probs.T, interpolation='none', extent=extent)
@@ -49,3 +55,5 @@ if __name__ == '__main__':
     plt.tight_layout()
 
     plt.show()
+
+    pr.print_stats(sort='time')

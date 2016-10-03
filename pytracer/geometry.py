@@ -1,6 +1,9 @@
 import numpy as np
 from collections import namedtuple
 import matplotlib.pyplot as plt
+from . import geometry_c as geo_c
+
+_array1D_cache = np.empty(300, dtype=np.double)
 
 
 def center(segments):
@@ -21,19 +24,26 @@ def normal(segments, midpoint_origin=False):
     return normals
 
 
-def solid_angle(segments, point):
+def solid_angle(segments, point, cache=None):
     """Calculates 2D solid angle of segments relative to a point."""
-    a = np.linalg.norm(segments[:, 0] - point, axis=1)
-    b = np.linalg.norm(segments[:, 1] - point, axis=1)
-    c = np.linalg.norm(segments[:, 0] - segments[:, 1], axis=1)
+    if cache is None:
+        n_segments = np.size(segments, 0)
+        cache = _array1D_cache[:n_segments]
+    # a = np.linalg.norm(segments[:, 0] - point, axis=1)
+    # b = np.linalg.norm(segments[:, 1] - point, axis=1)
+    # c = np.linalg.norm(segments[:, 0] - segments[:, 1], axis=1)
+    #
+    # num = a ** 2 + b ** 2 - c ** 2
+    # denom = 2 * a * b
+    # angle = np.arccos(np.abs(num / denom))
+    # is_greater_halfpi = angle > np.pi / 2
+    # angle[is_greater_halfpi] = np.pi - angle[is_greater_halfpi]
+    #
+    # return angle
 
-    num = a ** 2 + b ** 2 - c ** 2
-    denom = 2 * a * b
-    angle = np.arccos(np.abs(num / denom))
-    is_greater_halfpi = angle > np.pi / 2
-    angle[is_greater_halfpi] = np.pi - angle[is_greater_halfpi]
+    geo_c.solid_angle(segments, point, cache)
 
-    return angle
+    return cache
 
 
 def rotation_matrix(radian):
