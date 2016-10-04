@@ -79,7 +79,7 @@ cpdef absorbance_image(double[:, ::1] image, double[::1] xs, double[::1] ys,
 @cdivision(True)
 @boundscheck(False)
 cpdef int intersections(double[::1] start, double[::1] end, double[:, :, ::1] segments,
-                        double[:, ::1] intersect_cache, int[::1] index_cache, bint ray=False):
+                        double[:, ::1] intersect_cache, int[::1] index_cache, bint ray):
     cdef:
         int i, num_intersect = 0
         double r[2]
@@ -124,7 +124,7 @@ cpdef double absorbance(double[::1] start, double[::1] end,
         double tmp, tmp2
         int i, ci
 
-    num_intersect = intersections(start, end, segments, intersect_cache, index_cache)
+    num_intersect = intersections(start, end, segments, intersect_cache, index_cache, ray=False)
 
     # If no intersection must determine what material we are within by tracing a ray
     if num_intersect == 0:

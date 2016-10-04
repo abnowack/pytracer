@@ -29,19 +29,8 @@ def solid_angle(segments, point, cache=None):
     if cache is None:
         n_segments = np.size(segments, 0)
         cache = _array1D_cache[:n_segments]
-    # a = np.linalg.norm(segments[:, 0] - point, axis=1)
-    # b = np.linalg.norm(segments[:, 1] - point, axis=1)
-    # c = np.linalg.norm(segments[:, 0] - segments[:, 1], axis=1)
-    #
-    # num = a ** 2 + b ** 2 - c ** 2
-    # denom = 2 * a * b
-    # angle = np.arccos(np.abs(num / denom))
-    # is_greater_halfpi = angle > np.pi / 2
-    # angle[is_greater_halfpi] = np.pi - angle[is_greater_halfpi]
-    #
-    # return angle
 
-    geo_c.solid_angle(segments, point, cache)
+    geo_c.solid_angles(segments, point, cache)
 
     return cache
 

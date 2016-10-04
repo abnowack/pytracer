@@ -1,9 +1,12 @@
 import numpy as np
 from . import geometry as geo
 from . import transmission
+from . import fission_c
 
 _fission_segment_cache = np.empty((100, 2, 2), dtype=np.double)
 _fission_value_cache = np.empty(100, dtype=np.double)
+
+_array1D_cache = np.empty(100, dtype=np.double)
 
 
 def point_segment_distance(px, py, x0, x1, y0, y1):
@@ -113,19 +116,10 @@ def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_
 def probability_detect(position, flat_geom, detector_segments):
     # calc attenuation from fission position to center of detector segments
     # could calc the average over a segment if attenuation varies enough over the segment
-    end_positions = geo.center(detector_segments)
-    start_positions = np.tile(position, (len(end_positions), 1))
-    out_attenuations = transmission.attenuations(start_positions, end_positions, flat_geom.segments,
-                                                 flat_geom.absorbance)
-    exit_prob = out_attenuations
 
-    # calc solid angle of detector from fission_point
-    solid_angles = geo.solid_angle(detector_segments, position)
-    prob_solid_angle = solid_angles / (2 * np.pi)
-
-    prob_detect = np.sum(prob_solid_angle * exit_prob)
-
-    return prob_detect
+    return fission_c.probability_detect(position, flat_geom.absorbance, flat_geom.segments,
+                                        detector_segments, 0.0, transmission._intersect_cache,
+                                        transmission._index_cache, _array1D_cache)
 
 
 def probability_in(source, position, flat_geom):
