@@ -149,7 +149,7 @@ def probability_per_ds_neutron(source, position, flat_geom, mu_fission, detector
 def probability_segment_neutron(source, fission_segment, mu_fission, flat_geom, detector_segments, k, avg_nu,
                                 num_segment_points=5):
     segment_length = np.sqrt(
-        (fission_segment[0, 0] - fission_segment[1, 0]) ** 2 + (fission_segment[0, 1] - fission_segment[1, 1]))
+        (fission_segment[0, 0] - fission_segment[1, 0]) ** 2 + (fission_segment[0, 1] - fission_segment[1, 1]) ** 2)
 
     segment_probability = 0.
 
@@ -163,13 +163,22 @@ def probability_segment_neutron(source, fission_segment, mu_fission, flat_geom, 
     return segment_probability
 
 
+def probability_segment_neutron_c(source, fission_segment, mu_fission, flat_geom, detector_segments, k, avg_nu,
+                                  num_segment_points=5):
+    return fission_c.probability_segment_neutron(flat_geom.segments, flat_geom.absorbance, fission_segment,
+                                                 detector_segments,
+                                                 0.0, num_segment_points, source, k, avg_nu, mu_fission,
+                                                 transmission._intersect_cache,
+                                                 transmission._index_cache, _array1D_cache)
+
+
 def probability_path_neutron(start, end, flat_geom, detector_segments, k, avg_nu):
     segments, values = find_fission_segments(start, end, flat_geom)
 
     prob = 0
     for (segment, value) in zip(segments, values):
         prob += probability_segment_neutron(start, segment, value, flat_geom, detector_segments, k, avg_nu)
-
+        # prob += probability_segment_neutron_c(start, segment, value, flat_geom, detector_segments, k, avg_nu)
     return prob
 
 

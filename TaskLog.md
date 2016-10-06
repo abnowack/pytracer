@@ -5,7 +5,7 @@ Speed up fission calculation routines used by fission.scan as used in tests/fiss
 Optimization Targets:
 probability_path_neutron ---> find_fission_segments
                           |-> probability_segment_neutron -> probability_segment_neutron
-                              -> probability_out -> probability_detect -> [geometry/solid_angle]
+                              -> probability_out -> [probability_detect] -> [geometry/solid_angle]
 
 Before starting work
 
@@ -53,24 +53,23 @@ After cythonizing geometry/solid_angle
 After cythonizing fission/probability_detect
 
 "C:\Users\Aaron Nowack\Anaconda3\python.exe" H:/GitHub/pytracer/scripts/fission_measurement.py
-         954475 function calls in 9.425 seconds
+         897055 function calls in 9.596 seconds
 
    Ordered by: internal time
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-    57420    6.571    0.000    6.609    0.000 {built-in method pytracer.fission_c.probability_detect}
-    20000    0.553    0.000    1.238    0.000 fission.py:48(find_fission_segments)
-    57420    0.417    0.000    0.417    0.000 {built-in method pytracer.transmission_c.absorbance}
-    11484    0.338    0.000    8.037    0.001 fission.py:160(probability_segment_neutron)
-    16320    0.250    0.000    0.250    0.000 fission.py:54(point_is_outer_segment_side)
-    97420    0.193    0.000    0.193    0.000 {built-in method numpy.core.multiarray.array}
-    57420    0.164    0.000    6.818    0.000 fission.py:141(probability_out)
-    57420    0.150    0.000    0.641    0.000 transmission.py:44(attenuation)
-    20000    0.128    0.000    0.128    0.000 {built-in method pytracer.transmission_c.intersections}
-    20000    0.099    0.000    9.373    0.000 fission.py:177(probability_path_neutron)
+    57420    6.789    0.000    6.789    0.000 {built-in method pytracer.fission_c.probability_detect}
+    20000    0.553    0.000    1.244    0.000 fission.py:51(find_fission_segments)
+    57420    0.413    0.000    0.413    0.000 {built-in method pytracer.transmission_c.absorbance}
+    11484    0.341    0.000    8.199    0.001 fission.py:151(probability_segment_neutron)
+    16320    0.253    0.000    0.253    0.000 fission.py:57(point_is_outer_segment_side)
+    97420    0.189    0.000    0.189    0.000 {built-in method numpy.core.multiarray.array}
+    57420    0.160    0.000    6.994    0.000 fission.py:132(probability_out)
+    57420    0.148    0.000    0.632    0.000 transmission.py:44(attenuation)
+    20000    0.127    0.000    0.127    0.000 {built-in method pytracer.transmission_c.intersections}
+    20000    0.102    0.000    9.545    0.000 fission.py:168(probability_path_neutron)
     16320    0.079    0.000    0.079    0.000 {method 'reduce' of 'numpy.ufunc' objects}
-    57420    0.063    0.000    7.580    0.000 fission.py:152(probability_per_ds_neutron)
-    57420    0.058    0.000    0.699    0.000 fission.py:136(probability_in)
-    93946    0.052    0.000    0.052    0.000 fromnumeric.py:2659(size)
-        2    0.049    0.024    9.425    4.712 fission.py:187(scan)
-    57420    0.045    0.000    6.654    0.000 fission.py:115(probability_detect)
+    57420    0.062    0.000    7.745    0.000 fission.py:143(probability_per_ds_neutron)
+
+Noticed a difference in prob_segment_neutron calculation, turns out the segment length calculations differ
+The probability calculations are the same, but the segment length calc is not
