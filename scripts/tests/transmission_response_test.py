@@ -30,7 +30,7 @@ if __name__ == "__main__":
     grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
     # grid.draw()
 
-    radians = np.linspace(0, np.pi, 25)
+    radians = np.linspace(0, np.pi, 50)
     start, end, extent = geo.parallel_beam_paths(height=30, num_projections=200, offset=30, radians=radians,
                                                  extent=True)
     # for (s, e) in zip(start[:, 0], end[:, 0]):
@@ -48,22 +48,22 @@ if __name__ == "__main__":
     response = transmission.grid_response(assembly_flat, grid, start, end)
 
     alphas = np.linspace(0, 2, 100)
-    lcurve_y, lcurve_x = algorithms.trace_lcurve(measurement, response, alphas)
-    plt.figure()
-    plt.loglog(lcurve_x, lcurve_y)
+    # lcurve_y, lcurve_x = algorithms.trace_lcurve(measurement, response, alphas)
+    # plt.figure()
+    # plt.loglog(lcurve_x, lcurve_y)
 
-    plt.figure()
-    curv = algorithms.lcurve_curvature(np.log(lcurve_x), np.log(lcurve_y))
-    max_curv = np.argmax(curv)
-    max_alpha = alphas[max_curv + 1]
-    plt.plot(curv)
-    plt.title('Max LCurve 2nd Deriv @ alpha = ' + str(max_alpha))
+    # plt.figure()
+    # curv = algorithms.lcurve_curvature(np.log(lcurve_x), np.log(lcurve_y))
+    # max_curv = np.argmax(curv)
+    # max_alpha = alphas[max_curv + 1]
+    # plt.plot(curv)
+    # plt.title('Max LCurve 2nd Deriv @ alpha = ' + str(max_alpha))
 
-    recon = algorithms.solve_tikhonov(measurement.T, response.T, alpha=max_alpha)
+    recon = algorithms.solve_tikhonov(measurement.T, response.T, alpha=0.4)
     recon = recon.reshape(grid.num_y, grid.num_x)
     plt.figure()
-    plt.imshow(recon, interpolation='none', extent=extent, aspect='auto')
-    plt.title('alpha = ' + str(max_alpha))
+    plt.imshow(recon, interpolation='none', extent=extent, aspect='auto', cmap='viridis')
+    plt.title('alpha = ' + str(0.4))
     plt.colorbar()
 
     plt.show()

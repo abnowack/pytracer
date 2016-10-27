@@ -190,12 +190,15 @@ Solid = namedtuple('Solid', 'segments in_material out_material')
 FlatGeometry = namedtuple('FlatGeometry', 'segments absorbance fission')
 
 
-def draw(solids, show_normals=False):
+def draw(solids, show_normals=False, fill=True):
     for solid in solids:
         color = solid.in_material.color
         xs = np.ravel(solid.segments[:, :, 0])
         ys = np.ravel(solid.segments[:, :, 1])
-        plt.fill(xs, ys, color=color, zorder=1)
+        if fill:
+            plt.fill(xs, ys, color=color, zorder=1)
+        else:
+            plt.plot(xs, ys, color=color)
 
         if show_normals:
             normals = normal(solid.segments)

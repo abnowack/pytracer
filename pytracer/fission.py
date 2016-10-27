@@ -2,6 +2,7 @@ import numpy as np
 from . import geometry as geo
 from . import transmission
 from . import fission_c
+from . import transmission_c
 
 _fission_segment_cache = np.empty((100, 2, 2), dtype=np.double)
 _fission_value_cache = np.empty(100, dtype=np.double)
@@ -9,43 +10,20 @@ _fission_value_cache = np.empty(100, dtype=np.double)
 _array1D_cache = np.empty(100, dtype=np.double)
 
 
-def point_segment_distance(px, py, x0, x1, y0, y1):
-    length2 = (x1 - x0) ** 2 + (y1 - y0) ** 2
-    if length2 <= 0:
-        return np.sqrt((px - x0) ** 2 + (px - y0) ** 2)
-    t = ((px - x0) * (x1 - x0) + (py - y0) * (y1 - y0)) / length2
-    t = min(1, t)
-    t = max(0, t)
-    projection_x = x0 + t * (x1 - x0)
-    projection_y = y0 + t * (y1 - y0)
-    distance = np.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
-    return distance
+def fissionval_at_point(point, flat_geom):
+    return transmission_c.absorbance_at_point(point[0], point[1], flat_geom.segments, flat_geom.fission)
 
 
-def sign_line(x, y, x1, y1, x2, y2):
-    return (x - x1) * (y1 - y2) - (y - y1) * (x1 - x2)
+def fissionval_image(xs, ys, flat_geom):
+    image = np.zeros((np.size(xs, 0), np.size(ys, 0)), dtype=np.double)
+    extent = [xs[0], xs[-1], ys[0], ys[-1]]
+
+    transmission_c.absorbance_image(image, xs, ys, flat_geom.segments, flat_geom.fission)
+
+    return image, extent
 
 
-def find_fissionval_at_point(point, flat_geom):
-    """ Based on looking at segment with smallest distance """
-    min_dist_fission = None
-    min_distance = 1e99
-    for i in range(np.size(flat_geom.segments, 0)):
-        distance = point_segment_distance(point[0], point[1], flat_geom.segments[i, 0, 0], flat_geom.segments[i, 1, 0],
-                                          flat_geom.segments[i, 0, 1], flat_geom.segments[i, 1, 1])
-        if distance < min_distance:
-            min_distance = distance
-            is_outer = sign_line(point[0], point[1], flat_geom.segments[i, 0, 0], flat_geom.segments[i, 0, 1],
-                                 flat_geom.segments[i, 1, 0], flat_geom.segments[i, 1, 1])
-            if is_outer == 0:
-                min_dist_fission = (flat_geom.fission[i, 1] + flat_geom.fission[i, 0]) / 2
-            elif is_outer > 0:
-                min_dist_fission = flat_geom.fission[i, 1]
-            else:
-                min_dist_fission = flat_geom.fission[i, 0]
-    return min_dist_fission
-
-
+# TODO Cython
 def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_values=None):
     if fission_segments is None:
         fission_segments = _fission_segment_cache
@@ -113,87 +91,47 @@ def find_fission_segments(start, end, flat_geom, fission_segments=None, fission_
     return fission_segments[:segment_count], fission_values[:segment_count]
 
 
-def probability_detect(position, flat_geom, detector_segments):
-    # calc attenuation from fission position to center of detector segments
-    # could calc the average over a segment if attenuation varies enough over the segment
-
-    return fission_c.probability_detect(position, flat_geom.absorbance, flat_geom.segments,
-                                        detector_segments, 0.0, transmission._intersect_cache,
-                                        transmission._index_cache, _array1D_cache)
-
-
-def probability_in(source, position, flat_geom):
-    prob_atten = transmission.attenuation(source, position, flat_geom.segments, flat_geom.absorbance)
-    return prob_atten
-
-
-def probability_out(position, flat_geom, detector_segments, k, avg_nu):
-    prob_detect = probability_detect(position, flat_geom, detector_segments)
-    if k == 1:
-        prob_out = np.exp(-prob_detect * avg_nu) * prob_detect * avg_nu
-    elif k == 2:
-        prob_out = 0.5 * np.exp(-prob_detect * avg_nu) * (prob_detect * avg_nu) ** 2
-    else:
-        raise NotImplemented
-    return prob_out
-
-
-def probability_per_ds_neutron(source, position, flat_geom, mu_fission, detector_segments, k, avg_nu):
-    prob_in = probability_in(source, position, flat_geom)
-    prob_out = probability_out(position, flat_geom, detector_segments, k, avg_nu)
-    prob_per_ds_fission = mu_fission
-
-    return prob_in * prob_per_ds_fission * prob_out
-
-
-def probability_segment_neutron(source, fission_segment, mu_fission, flat_geom, detector_segments, k, avg_nu,
-                                num_segment_points=5):
-    segment_length = np.sqrt(
-        (fission_segment[0, 0] - fission_segment[1, 0]) ** 2 + (fission_segment[0, 1] - fission_segment[1, 1]) ** 2)
-
-    segment_probability = 0.
-
-    for i in range(1, num_segment_points + 1):
-        xi = fission_segment[0, 0] + (i - 0.5) * (fission_segment[1, 0] - fission_segment[0, 0]) / num_segment_points
-        yi = fission_segment[0, 1] + (i - 0.5) * (fission_segment[1, 1] - fission_segment[0, 1]) / num_segment_points
-        prob_ds = probability_per_ds_neutron(source, np.array([xi, yi]), flat_geom, mu_fission, detector_segments, k,
-                                             avg_nu)
-        segment_probability += prob_ds * segment_length / num_segment_points
-
-    return segment_probability
-
-
-def probability_segment_neutron_c(source, fission_segment, mu_fission, flat_geom, detector_segments, k, avg_nu,
+def probability_segment_neutron_c(source, fission_segment, mu_fission, flat_geom, detector_segments, k, nu_dist,
                                   num_segment_points=5):
     return fission_c.probability_segment_neutron(flat_geom.segments, flat_geom.absorbance, fission_segment,
                                                  detector_segments,
-                                                 0.0, num_segment_points, source, k, avg_nu, mu_fission,
+                                                 0.0, num_segment_points, source, k, nu_dist, mu_fission,
                                                  transmission._intersect_cache,
                                                  transmission._index_cache, _array1D_cache)
 
 
-def probability_path_neutron(start, end, flat_geom, detector_segments, k, avg_nu):
+def probability_segment_neutron_grid_c(source, fission_segment, flat_geom, detector_segments, k, nu_dist,
+                                       num_segment_points=5):
+    return fission_c.probability_segment_neutron_grid(flat_geom.segments, flat_geom.absorbance, fission_segment,
+                                                      detector_segments,
+                                                      0.0, num_segment_points, source, k, nu_dist,
+                                                      transmission._intersect_cache,
+                                                      transmission._index_cache, _array1D_cache)
+
+
+def probability_path_neutron(start, end, flat_geom, detector_segments, k, nu_dist):
     segments, values = find_fission_segments(start, end, flat_geom)
 
     prob = 0
     for (segment, value) in zip(segments, values):
-        prob += probability_segment_neutron(start, segment, value, flat_geom, detector_segments, k, avg_nu)
-        # prob += probability_segment_neutron_c(start, segment, value, flat_geom, detector_segments, k, avg_nu)
+        prob += probability_segment_neutron_c(start, segment, value, flat_geom, detector_segments, k, nu_dist)
     return prob
 
 
-def scan(source, neutron_paths, detector_points, flat_geom, k, avg_nu):
+# TODO Cython
+def scan(source, neutron_paths, detector_points, flat_geom, k, nu_dist):
     probs = np.zeros((np.size(source, 0), np.size(neutron_paths, 0)), dtype=np.double)
     for i in range(np.size(source, 0)):
         detector_segments = geo.convert_points_to_segments(detector_points[:, i])
         for j in range(np.size(neutron_paths, 0)):
             probs[i, j] = probability_path_neutron(source[i], neutron_paths[j, i], flat_geom, detector_segments,
-                                                   k, avg_nu)
+                                                   k, nu_dist)
 
     return probs
 
 
-def grid_cell_response(source, neutron_path, detector_segments, flat_cell_geom, flat_geom, k, avg_nu,
+# TODO Cython
+def grid_cell_response(source, neutron_path, detector_segments, flat_cell_geom, flat_geom, k, nu_dist,
                        num_segment_points=5):
     """ Return array of size grid containing single fission response"""
     segment, val = find_fission_segments(source, neutron_path, flat_cell_geom)
@@ -202,33 +140,25 @@ def grid_cell_response(source, neutron_path, detector_segments, flat_cell_geom, 
         return 0
 
     segment = segment[0]
-
-    prob = 0
-    length = np.sqrt((segment[1, 0] - segment[0, 0]) ** 2 + (segment[1, 1] - segment[0, 1]) ** 2)
-
-    for i in range(1, num_segment_points + 1):
-        xi = segment[0, 0] + (i - 0.5) * (segment[1, 0] - segment[0, 0]) / num_segment_points
-        yi = segment[0, 1] + (i - 0.5) * (segment[1, 1] - segment[0, 1]) / num_segment_points
-        absorbance = transmission.find_absorbance_at_point(np.array([xi, yi]), flat_geom)
-        prob_ds = probability_per_ds_neutron(source, np.array([xi, yi]), flat_geom, absorbance, detector_segments, k,
-                                             avg_nu)
-        prob += prob_ds * length / num_segment_points
+    prob = probability_segment_neutron_grid_c(source, segment, flat_geom, detector_segments, k, nu_dist)
 
     return prob
 
 
-def grid_response_scan(source, neutron_paths, detector_points, flat_cell_geom, flat_geom, k, avg_nu):
+# TODO Cython
+def grid_response_scan(source, neutron_paths, detector_points, flat_cell_geom, flat_geom, k, nu_dist):
     probs = np.zeros((np.size(source, 0), np.size(neutron_paths, 0)), dtype=np.double)
     for i in range(np.size(source, 0)):
         detector_segments = geo.convert_points_to_segments(detector_points[:, i])
         for j in range(np.size(neutron_paths, 0)):
             probs[i, j] = grid_cell_response(source[i], neutron_paths[j, i], detector_segments, flat_cell_geom,
-                                             flat_geom, k, avg_nu)
+                                             flat_geom, k, nu_dist)
 
     return probs
 
 
-def grid_response(source, neutron_paths, detector_points, grid, flat_geom, k, avg_nu):
+# TODO Cython
+def grid_response(source, neutron_paths, detector_points, grid, flat_geom, k, nu_dist):
     unit_m = geo.Material('black', 1, 1)
     vacuum = geo.Material('white', 0, 0)
 
@@ -240,6 +170,6 @@ def grid_response(source, neutron_paths, detector_points, grid, flat_geom, k, av
         cell_flat = geo.flatten(cell_geom)
 
         response[i, :, :] = grid_response_scan(source, neutron_paths, detector_points, cell_flat, flat_geom,
-                                               k, avg_nu)
+                                               k, nu_dist)
 
     return response

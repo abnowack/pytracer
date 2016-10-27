@@ -10,14 +10,18 @@ if __name__ == "__main__":
     end = np.array([20., 10.])
 
     plt.figure()
-    geo.draw(assembly_solids, show_normals=True)
+    geo.draw(assembly_solids, show_normals=True, fill=False)
     plt.plot([start[0], end[0]], [start[1], end[1]])
 
     assembly_flat = geo.flatten(assembly_solids)
     intercepts, indexes = transmission.intersections(start, end, assembly_flat.segments)
 
+    for index in indexes:
+        segment = assembly_flat.segments[index]
+        plt.plot(segment[:, 0], segment[:, 1], color='black', lw=3)
+
     for intercept in intercepts:
-        plt.plot(intercept[0], intercept[1], 'o', color='green')
+        plt.scatter(intercept[0], intercept[1], s=100, facecolors='none', edgecolors='black', linewidths=2)
 
     plt.tight_layout()
     plt.show()

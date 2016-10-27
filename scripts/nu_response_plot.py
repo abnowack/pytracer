@@ -43,7 +43,7 @@ if __name__ == "__main__":
     fissionimage = np.zeros((np.size(xs, 0), np.size(ys, 0)), dtype=np.double)
     for i, x in enumerate(xs):
         for j, y in enumerate(ys):
-            fissionimage[i, j] = fission.find_fissionval_at_point(np.array([x, y]), assembly_flat)
+            fissionimage[i, j] = fission.fissionval_at_point(np.array([x, y]), assembly_flat)
 
     # down sample
     dims = (int(np.size(fissionimage, 0) / supersample), int(np.size(fissionimage, 1) / supersample))

@@ -32,27 +32,27 @@ if __name__ == '__main__':
     # calculate singles and doubles measurement scans
 
     # prorfile time
-    pr = cProfile.Profile()
-    pr.enable()
-    single_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 1, 0.2)
-    double_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 2, 0.2)
-    pr.disable()
-
-    plt.figure()
-    plt.imshow(single_probs.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    plt.title('Single Neutron Probability')
-    plt.xlabel('Detector Orientation')
-    plt.ylabel('Relative Neutron Angle')
-    plt.tight_layout()
-
-    plt.figure()
-    plt.imshow(double_probs.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    plt.title('Double Neutron Probability')
-    plt.xlabel('Detector Orientation')
-    plt.ylabel('Relative Neutron Angle')
-    plt.tight_layout()
+    # pr = cProfile.Profile()
+    # pr.enable()
+    # single_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 1, 0.2)
+    # double_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 2, 0.2)
+    # pr.disable()
+    #
+    # plt.figure()
+    # plt.imshow(single_probs.T, interpolation='none', extent=extent)
+    # # plt.colorbar()
+    # plt.title('Single Neutron Probability')
+    # plt.xlabel('Detector Orientation')
+    # plt.ylabel('Relative Neutron Angle')
+    # plt.tight_layout()
+    #
+    # plt.figure()
+    # plt.imshow(double_probs.T, interpolation='none', extent=extent)
+    # # plt.colorbar()
+    # plt.title('Double Neutron Probability')
+    # plt.xlabel('Detector Orientation')
+    # plt.ylabel('Relative Neutron Angle')
+    # plt.tight_layout()
 
     plt.show()
 
