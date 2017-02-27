@@ -7,6 +7,26 @@ from pytracer.geometry_c cimport solid_angle
 from cython cimport cdivision, boundscheck, wraparound
 from libc.math cimport sqrt, acos, fabs, M_PI, exp, pow
 
+cpdef unsigned int binom(unsigned int n, unsigned int k):
+    cdef:
+        unsigned int ans=1
+        unsigned int j=1
+
+    if k > n - k:
+        k = n - k
+
+    for j in range(1, k+1):
+        if n % j == 0:
+            ans *= n / j
+        elif ans % j == 0:
+            ans = ans / j * n
+        else:
+            ans = (ans * n) / j
+        n -= 1
+
+    return ans
+
+
 cpdef double probability_detect(double[::1] position, double[:, ::1] absorbances,
                                 double[:, :, ::1] segments, double[:, :, ::1] detector_segments,
                                 double universe_absorption, double[:, ::1] intersect_cache,
@@ -57,7 +77,7 @@ cpdef double probability_segment_neutron(double[:, :, ::1] segments, double[:, :
         prob_detect = probability_detect(cache[:2], absorbances, segments, detector_segments, universe_absorption, intersect_cache, index_cache, cache[3:])
         prob_out = 0.
         for j in range(np.size(nu_dist)):
-            prob_out += nu_dist[j] * pow(prob_detect, k) * pow(1. - prob_detect, j - k)
+            prob_out += binom(j, k) * nu_dist[j] * pow(prob_detect, k) * pow(1. - prob_detect, j - k)
 
         segment_probability += prob_in * mu_fission * prob_out * segment_length / num_segment_points
 
@@ -92,7 +112,7 @@ cpdef double probability_segment_neutron_grid(double[:, :, ::1] segments, double
         prob_detect = probability_detect(cache[:2], absorbances, segments, detector_segments, universe_absorption, intersect_cache, index_cache, cache[3:])
         prob_out = 0.
         for j in range(np.size(nu_dist)):
-            prob_out += nu_dist[j] * pow(prob_detect, k) * pow(1. - prob_detect, j - k)
+            prob_out += binom(j, k) * nu_dist[j] * pow(prob_detect, k) * pow(1. - prob_detect, j - k)
 
         segment_probability += prob_in * mu_fission * prob_out * segment_length / num_segment_points
 

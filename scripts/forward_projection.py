@@ -8,6 +8,40 @@ import pytracer.algorithms as algorithms
 import pytracer.fission as fission
 
 
+def nice_double_plot(data1, data2, extent, title1='', title2='', xlabel='', ylabel=''):
+    fig = plt.figure(figsize=(8, 5))
+    ax = fig.add_subplot(111)
+    ax1 = fig.add_subplot(211)
+    ax2 = fig.add_subplot(212)
+
+    # Turn off axis lines and ticks of the big subplot
+    ax.spines['top'].set_color('none')
+    ax.spines['bottom'].set_color('none')
+    ax.spines['left'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+
+    print(data1.min(), data1.max())
+    im1 = ax1.imshow(data1, interpolation='none', extent=extent, cmap='viridis')
+    ax1.set_title(title1)
+    # vmin1, vmax1 = im1.get_clim()
+    # print(vmin1, vmax1)
+
+    im2 = ax2.imshow(data2, interpolation='none', extent=extent, cmap='viridis')
+    ax2.set_title(title2)
+    # vmin2, vmax2 = im2.get_clim()
+    # im2.set_clim(vmin1, vmax1)
+    # print(vmin2, vmax2)
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.yaxis.labelpad = 40
+    ax.set_frame_on(False)
+    ax.axes.get_xaxis().set_ticks([])
+    ax.axes.get_yaxis().set_ticks([])
+    plt.subplots_adjust(right=0.98, top=0.95, bottom=0.07, left=0.12, hspace=0.05, wspace=0.20)
+
+
 def rebin(a, shape):
     sh = shape[0], a.shape[0] // shape[0], shape[1], a.shape[1] // shape[1]
     return a.reshape(sh).mean(-1).mean(1)
@@ -25,8 +59,8 @@ if __name__ == "__main__":
     source, detector_points, extent = geo.fan_beam_paths(60, arc_radians, radians, extent=True)
     source = source[0, :, :]
 
-    # grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
-    grid = geo.Grid(width=25, height=15, num_x=25, num_y=15)
+    grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
+    # grid = geo.Grid(width=25, height=15, num_x=25, num_y=15)
     # grid.draw()
 
     cell_i = 109
@@ -49,15 +83,15 @@ if __name__ == "__main__":
     dims = (int(np.size(fissionimage, 0) / supersample), int(np.size(fissionimage, 1) / supersample))
     fissionimage_down = rebin(fissionimage, dims)
 
-    plt.figure()
-    plt.imshow(fissionimage.T, interpolation='none', extent=extent)
-    # plt.colorbar()
+    plt.figure(figsize=(6, 4))
+    plt.imshow(fissionimage.T, interpolation='none', extent=[-25. / 2, 25. / 2, -15. / 2, 15. / 2], cmap='viridis')
+    plt.tight_layout()
     plt.xlabel('X (cm)')
     plt.ylabel('Y (cm)')
 
-    plt.figure()
-    plt.imshow(fissionimage_down.T, interpolation='none', extent=extent)
-    # plt.colorbar()
+    plt.figure(figsize=(6, 4))
+    plt.imshow(fissionimage_down.T, interpolation='none', extent=[-25. / 2, 25. / 2, -15. / 2, 15. / 2], cmap='viridis')
+    plt.tight_layout()
     plt.xlabel('X (cm)')
     plt.ylabel('Y (cm)')
 
@@ -80,38 +114,12 @@ if __name__ == "__main__":
 
     single_project = project_fission(fissionimage_down, response_single)
 
-    plt.figure()
-    plt.imshow(single_project.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    plt.title('Single Neutron Forward Projection')
-    plt.xlabel('Detector Orientation')
-    plt.ylabel('Relative Neutron Angle')
-    plt.tight_layout()
-
-    plt.figure()
-    plt.imshow(single_probs.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    plt.title('Single Neutron Probability')
-    plt.xlabel('Detector Orientation')
-    plt.ylabel('Relative Neutron Angle')
-    plt.tight_layout()
+    nice_double_plot(single_probs.T, single_project.T, extent, 'Single Measurement',
+                     'Single Forward Project', 'Detector Orientation Angle', 'Source Neutron Direction Angle')
 
     double_project = project_fission(fissionimage_down, response_double)
 
-    plt.figure()
-    plt.imshow(double_project.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    plt.title('Double Neutron Forward Projection')
-    plt.xlabel('Detector Orientation')
-    plt.ylabel('Relative Neutron Angle')
-    plt.tight_layout()
-
-    plt.figure()
-    plt.imshow(double_probs.T, interpolation='none', extent=extent)
-    # plt.colorbar()
-    plt.title('Double Neutron Probability')
-    plt.xlabel('Detector Orientation')
-    plt.ylabel('Relative Neutron Angle')
-    plt.tight_layout()
+    nice_double_plot(double_probs.T, double_project.T, extent, 'Double Measurement',
+                     'Double Forward Project', 'Detector Orientation Angle', 'Source Neutron Direction Angle')
 
     plt.show()

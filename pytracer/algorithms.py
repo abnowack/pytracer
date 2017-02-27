@@ -2,83 +2,71 @@ import numpy as np
 from scipy.ndimage.interpolation import rotate
 
 
-def solve_tikhonov(measurement, response, alpha=0):
-    rr = response.reshape(-1, np.size(response, 2))
-    mm = measurement.reshape((-1))
-    lhs = np.dot(rr.T, rr)
-    rhs = np.dot(rr.T, mm)
+def generalized_cross_validation(d, G, alpha):
+    m = np.size(G, 0)
+    L = np.identity(np.size(G, 1))
 
-    # Apply Tikhonov Regularization with an L2 norm
-    gamma = alpha * np.identity(np.size(lhs, 0))
-    lhs += np.dot(gamma.T, gamma)
+    GPound = np.linalg.inv(G.T @ G + (alpha ** 2) * L.T @ L) @ G.T
+    m_alpha = GPound @ d
 
-    recon = np.linalg.solve(lhs, rhs)
+    num = m * np.linalg.norm(G @ m_alpha - d) ** 2
+    denom = np.trace(np.identity(m) - G @ GPound) ** 2
 
-    return recon
+    gcv_value = num / denom
+
+    return gcv_value
 
 
-def solve_tikhonov_direct(measurement, response, alpha=0):
-    rr = response.reshape(-1, np.size(response, 2))
-    mm = measurement.reshape((-1))
-    lhs = np.dot(rr.T, rr)
-    rhs = np.dot(rr.T, mm)
+def solve_tikhonov(d, G, alpha=0):
+    gamma = alpha * np.identity(np.size(G, 1))
 
-    # Apply Tikhonov Regularization with an L2 norm
-    gamma = np.identity(np.size(lhs, 0))
-    lhs += alpha * np.dot(gamma.T, gamma)
+    lhs = G.T @ G + gamma.T @ gamma
+    rhs = G.T @ d
     inv = np.linalg.inv(lhs)
+    m = inv @ rhs
 
-    recon = np.dot(inv, rhs)
-
-    return recon
-
-
-def simultaneous_solve(measurement_1, response_1, measurement_2, response_2, alpha=0):
-    rr1 = response_1.reshape(-1, np.size(response_1, 2))
-    mm1 = measurement_1.reshape((-1))
-    rr2 = response_2.reshape(-1, np.size(response_1, 2))
-    mm2 = measurement_2.reshape((-1))
-
-    rr = np.concatenate((rr1, rr2))
-    mm = np.concatenate((mm1, 10000 * mm2))
-
-    lhs = np.dot(rr.T, rr)
-    rhs = np.dot(rr.T, mm)
-
-    # Apply Tikhonov Regularization with an L2 norm
-    gamma = np.identity(np.size(lhs, 0))
-    lhs += alpha * np.dot(gamma.T, gamma)
-    inv = np.linalg.inv(lhs)
-
-    recon = np.dot(inv, rhs)
-
-    return recon
+    return m
 
 
-def trace_lcurve(measurement, response, alphas):
-    rr = response.reshape(-1, np.size(response, 1) * np.size(response, 2))
-    recon_norm = np.zeros(len(alphas))
-    recon_residual = np.zeros(len(alphas))
+def trace_lcurve(d, G, alphas):
+    norms = np.zeros(len(alphas))
+    residuals = np.zeros(len(alphas))
     for i, alpha in enumerate(alphas):
-        recon = solve_tikhonov(measurement.T, response.T, alpha=alpha)
-        recon_data = np.dot(recon, rr).reshape(measurement.shape)
-        recon_residual[i] = np.linalg.norm(measurement - recon_data)
-        recon_norm[i] = np.linalg.norm(recon)
-    return recon_norm, recon_residual
+        m_alpha = solve_tikhonov(d, G, alpha=alpha)
+        residuals[i] = np.linalg.norm(G @ m_alpha - d)
+        norms[i] = np.linalg.norm(m_alpha)
+    return norms, residuals
 
 
-def lcurve_curvature(x, y):
-    xdot = x[:-1] - x[1:]
-    ydot = y[:-1] - y[1:]
-    xdotdot = xdot[:-1] - xdot[1:]
-    ydotdot = ydot[:-1] - ydot[1:]
-    xdot = (xdot[:-1] + xdot[1:]) / 2.
-    ydot = (ydot[:-1] + ydot[1:]) / 2.
+def diff_central(x, y):
+    """Calculate central derivative, return derivative values excluding endpoints."""
+    x0 = x[:-2]
+    x1 = x[1:-1]
+    x2 = x[2:]
+    y0 = y[:-2]
+    y1 = y[1:-1]
+    y2 = y[2:]
+    f = (x2 - x1) / (x2 - x0)
+    return (1 - f) * (y2 - y1) / (x2 - x1) + f * (y1 - y0) / (x1 - x0)
 
-    num = np.abs(xdot * ydotdot - ydot * xdotdot)
-    denom = np.power(xdot * xdot + ydot * ydot, 1.5)
 
-    return np.divide(num, denom)
+def lcurve_curvature(alphas, norms, residuals):
+    eta_hat = np.log(norms ** 2)
+    rho_hat = np.log(residuals ** 2)
+
+    d_eta_hat = diff_central(alphas, eta_hat)
+    d_rho_hat = diff_central(alphas, rho_hat)
+
+    dd_eta_hat = diff_central(alphas[1:-1], d_eta_hat)
+    dd_rho_hat = diff_central(alphas[1:-1], d_rho_hat)
+
+    d_eta_hat = d_eta_hat[1:-1]
+    d_rho_hat = d_rho_hat[1:-1]
+    alphas = alphas[2:-2]
+
+    curvature = 2 * (d_rho_hat * dd_eta_hat - dd_rho_hat * d_eta_hat) / (d_rho_hat ** 2 + d_eta_hat ** 2) ** (3 / 2)
+
+    return alphas, curvature
 
 
 def filtered_back_projection(sinogram, radians):

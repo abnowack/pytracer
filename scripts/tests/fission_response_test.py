@@ -11,6 +11,34 @@ import pytracer.transmission as transmission
 import pytracer.algorithms as algorithms
 import pytracer.fission as fission
 
+
+def nice_double_plot(data1, data2, extent, title1='', title2='', xlabel='', ylabel=''):
+    fig = plt.figure(figsize=(8, 5))
+    ax = fig.add_subplot(111)
+    ax1 = fig.add_subplot(211)
+    ax2 = fig.add_subplot(212)
+
+    # Turn off axis lines and ticks of the big subplot
+    ax.spines['top'].set_color('none')
+    ax.spines['bottom'].set_color('none')
+    ax.spines['left'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
+
+    ax1.imshow(data1, interpolation='none', extent=extent, cmap='viridis')
+    ax1.set_title(title1)
+
+    ax2.imshow(data2, interpolation='none', extent=extent, cmap='viridis')
+    ax2.set_title(title2)
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.yaxis.labelpad = 40
+    ax.set_frame_on(False)
+    ax.axes.get_xaxis().set_ticks([])
+    ax.axes.get_yaxis().set_ticks([])
+    plt.subplots_adjust(right=0.98, top=0.95, bottom=0.07, left=0.12, hspace=0.05, wspace=0.20)
+
 if __name__ == "__main__":
     assembly_solids = shielded_assembly()
     assembly_flat = geo.flatten(assembly_solids)
@@ -27,10 +55,10 @@ if __name__ == "__main__":
     source = source[0, :, :]
 
     # grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
-    grid = geo.Grid(width=25, height=15, num_x=25, num_y=15)
+    grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
     grid.draw()
 
-    cell_i = 109
+    cell_i = 109 * 4 - 20
     unit_m = geo.Material('black', 1, 1)
     vacuum = geo.Material('white', 0, 0)
     grid_points = grid.cell(cell_i)
@@ -43,26 +71,8 @@ if __name__ == "__main__":
     double_response = fission.grid_response_scan(source, detector_points, detector_points, cell_flat, assembly_flat, 2,
                                                  avg_nu)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax1 = fig.add_subplot(211)
-    ax2 = fig.add_subplot(212)
-
-    # Turn off axis lines and ticks of the big subplot
-    ax.spines['top'].set_color('none')
-    ax.spines['bottom'].set_color('none')
-    ax.spines['left'].set_color('none')
-    ax.spines['right'].set_color('none')
-    ax.tick_params(labelcolor='w', top='off', bottom='off', left='off', right='off')
-
-    ax1.imshow(single_response.T, interpolation='none', extent=extent, cmap='viridis')
-    ax1.set_title('Single Fission Neutron Response')
-
-    ax2.imshow(double_response.T, interpolation='none', extent=extent, cmap='viridis')
-    ax2.set_title('Double Fission Neutron Response')
-
-    ax.set_ylabel('Source Neutron Angle')
-    ax.set_xlabel('Detector Orientation Angle')
-    ax.yaxis.labelpad = 20
+    nice_double_plot(single_response.T, double_response.T, extent, 'Single Fission Neutron Response',
+                     'Double Fission Neutron Response',
+                     'Detector Orientation Angle', 'Source Neutron Direction Angle')
 
     plt.show()

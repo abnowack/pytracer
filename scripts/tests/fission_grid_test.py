@@ -39,9 +39,9 @@ if __name__ == "__main__":
     cell_geom = [geo.Solid(geo.convert_points_to_segments(grid.cell(cell_i), True), unit_m, vacuum)]
     cell_flat = geo.flatten(cell_geom)
     detector_segments = geo.convert_points_to_segments(detector_points[:, rad_i])
-    result = fission.grid_cell_response_single(source[rad_i], detector_points[arc_rad_i, rad_i], detector_segments,
-                                               cell_flat, assembly_flat, 0.2)
-    print(result)
+    # result = fission.grid_cell_response_single(source[rad_i], detector_points[arc_rad_i, rad_i], detector_segments,
+    #                                            cell_flat, assembly_flat, 0.2)
+    # print(result)
 
     plt.figure()
     geo.draw(assembly_solids)
