@@ -1,3 +1,8 @@
+"""
+Create all of the assemblies of objects here
+"""
+
+
 from pytracer import geometry as geo
 from math import pi
 
@@ -22,8 +27,6 @@ def shielded_assembly(fission=False):
 
     solids = [geo.Solid(box, steel, air), geo.Solid(hollow_circle, u235_metal, air),
               geo.Solid(small_box_1, poly, air), geo.Solid(small_box_2, steel, air)]
-    # solids = [geo.Solid(hollow_circle, u235_metal, air), geo.Solid(small_box_1, poly, air),
-    #           geo.Solid(small_box_2, steel, air)]
 
     return solids
 

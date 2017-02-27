@@ -1,11 +1,12 @@
-import sys
+"""
+Create plot of mu_total by sampling assembly
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
 import pytracer.transmission as transmission
-import pytracer.algorithms as algorithms
-import pytracer.fission as fission
 
 if __name__ == "__main__":
     assembly_solids = shielded_assembly()

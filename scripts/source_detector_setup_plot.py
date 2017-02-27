@@ -1,18 +1,18 @@
-import sys
+"""
+Display the source and detector plane with labels
+"""
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
-import pytracer.fission as fission
-import cProfile, pstats
 
 if __name__ == '__main__':
     assembly_solids = shielded_assembly()
     assembly_flat = geo.flatten(assembly_solids)
 
     plt.figure()
-    # geo.draw(assembly_solids)
 
     # must create neutron beam paths and detector bins
     radians = np.linspace(0, np.pi, 100)
@@ -30,8 +30,6 @@ if __name__ == '__main__':
                   detector_points[source_disp_angle, disp_angle, 0] - source[disp_angle, 0],
                   detector_points[source_disp_angle, disp_angle, 1] - source[disp_angle, 1], shape='full',
                   length_includes_head=True, width=0.1, color='green')
-    # l1, = plt.plot([source[disp_angle, 0], detector_points[source_disp_angle, disp_angle, 0]],
-    #          [source[disp_angle, 1], detector_points[source_disp_angle, disp_angle, 1]], 'g', lw=2.5)
     l2, = plt.plot([source[disp_angle, 0], detector_points[len(arc_radians) / 2, disp_angle, 0]],
                    [source[disp_angle, 1], detector_points[len(arc_radians) / 2, disp_angle, 1]], '--', color='gray',
                    lw=2.5, zorder=5)
@@ -67,34 +65,7 @@ if __name__ == '__main__':
 
     d.set_zorder(50)
 
-    # calculate singles and doubles measurement scans
-
-    # prorfile time
-    # pr = cProfile.Profile()
-    # pr.enable()
-    # single_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 1, 0.2)
-    # double_probs = fission.scan(source, detector_points, detector_points, assembly_flat, 2, 0.2)
-    # pr.disable()
-    #
-    # plt.figure()
-    # plt.imshow(single_probs.T, interpolation='none', extent=extent)
-    # # plt.colorbar()
-    # plt.title('Single Neutron Probability')
-    # plt.xlabel('Detector Orientation')
-    # plt.ylabel('Relative Neutron Angle')
-    # plt.tight_layout()
-    #
-    # plt.figure()
-    # plt.imshow(double_probs.T, interpolation='none', extent=extent)
-    # # plt.colorbar()
-    # plt.title('Double Neutron Probability')
-    # plt.xlabel('Detector Orientation')
-    # plt.ylabel('Relative Neutron Angle')
-    # plt.tight_layout()
-
     ax.axes.xaxis.set_ticklabels([])
     ax.axes.yaxis.set_ticklabels([])
     plt.tight_layout()
     plt.show()
-
-    # pr.print_stats(sort='time')

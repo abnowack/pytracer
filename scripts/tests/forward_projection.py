@@ -1,10 +1,12 @@
-import sys
+"""
+Calculate the forward projection: A_single * X_casting
+and compare with the precomputed measurement Y_single
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
-import pytracer.transmission as transmission
-import pytracer.algorithms as algorithms
 import pytracer.fission as fission
 
 
@@ -24,14 +26,9 @@ def nice_double_plot(data1, data2, extent, title1='', title2='', xlabel='', ylab
     print(data1.min(), data1.max())
     im1 = ax1.imshow(data1, interpolation='none', extent=extent, cmap='viridis')
     ax1.set_title(title1)
-    # vmin1, vmax1 = im1.get_clim()
-    # print(vmin1, vmax1)
 
     im2 = ax2.imshow(data2, interpolation='none', extent=extent, cmap='viridis')
     ax2.set_title(title2)
-    # vmin2, vmax2 = im2.get_clim()
-    # im2.set_clim(vmin1, vmax1)
-    # print(vmin2, vmax2)
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
@@ -51,22 +48,17 @@ if __name__ == "__main__":
     assembly_solids = shielded_assembly()
     assembly_flat = geo.flatten(assembly_solids)
 
-    # plt.figure()
-    # geo.draw(assembly_solids)
-
     radians = np.linspace(0, np.pi, 100)
     arc_radians = np.linspace(-np.pi / 8, np.pi / 8, 100)
     source, detector_points, extent = geo.fan_beam_paths(60, arc_radians, radians, extent=True)
     source = source[0, :, :]
 
     grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
-    # grid = geo.Grid(width=25, height=15, num_x=25, num_y=15)
-    # grid.draw()
 
     cell_i = 109
     grid_points = grid.cell(cell_i)
 
-    # super sample
+    # super sample the fission attenuation image, to down sample it later
     supersample = 4
     min_gridx, max_gridx = grid.points[0, 0, 0], grid.points[0, -1, 0]
     min_gridy, max_gridy = grid.points[-1, 0, 1], grid.points[0, 0, 1]
@@ -79,7 +71,7 @@ if __name__ == "__main__":
         for j, y in enumerate(ys):
             fissionimage[i, j] = fission.fissionval_at_point(np.array([x, y]), assembly_flat)
 
-    # down sample
+    # down sample the image
     dims = (int(np.size(fissionimage, 0) / supersample), int(np.size(fissionimage, 1) / supersample))
     fissionimage_down = rebin(fissionimage, dims)
 
@@ -94,8 +86,6 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.xlabel('X (cm)')
     plt.ylabel('Y (cm)')
-
-    # plt.fill(grid_points[:, 0], grid_points[:, 1], color='red', alpha=0.5, zorder=12)
 
     response_single = np.load(r'data\fission_response_single.npy')
     response_double = np.load(r'data\fission_response_double.npy')

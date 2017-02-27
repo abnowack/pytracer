@@ -1,17 +1,11 @@
 """
-Create response matrices for the single and double fission responses over a grid, for the basic assembly geometry.
+Reconstruct single, double, and combined single+double mu_f plots
 """
 
-import sys
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.colors import LogNorm
 import numpy as np
-from scripts.assemblies import shielded_assembly
-import pytracer.geometry as geo
-import pytracer.transmission as transmission
 import pytracer.algorithms as algorithms
-import pytracer.fission as fission
 
 
 def nice_double_plot(data1, data2, extent, title1='', title2='', xlabel='', ylabel=''):
@@ -30,14 +24,9 @@ def nice_double_plot(data1, data2, extent, title1='', title2='', xlabel='', ylab
     print(data1.min(), data1.max())
     im1 = ax1.imshow(data1, interpolation='none', extent=extent, cmap='viridis')
     ax1.set_title(title1)
-    # vmin1, vmax1 = im1.get_clim()
-    # print(vmin1, vmax1)
 
     im2 = ax2.imshow(data2, interpolation='none', extent=extent, cmap='viridis')
     ax2.set_title(title2)
-    # vmin2, vmax2 = im2.get_clim()
-    # im2.set_clim(vmin1, vmax1)
-    # print(vmin2, vmax2)
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)

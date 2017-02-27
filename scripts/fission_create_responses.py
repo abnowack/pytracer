@@ -2,14 +2,11 @@
 Create response matrices for the single and double fission responses over a grid, for the basic assembly geometry.
 """
 
-import sys
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
-import pytracer.transmission as transmission
-import pytracer.algorithms as algorithms
 import pytracer.fission as fission
 
 
@@ -29,14 +26,9 @@ def nice_double_plot(data1, data2, extent, title1='', title2='', xlabel='', ylab
     print(data1.min(), data1.max())
     im1 = ax1.imshow(data1, interpolation='none', extent=extent, cmap='viridis')
     ax1.set_title(title1)
-    # vmin1, vmax1 = im1.get_clim()
-    # print(vmin1, vmax1)
 
     im2 = ax2.imshow(data2, interpolation='none', extent=extent, cmap='viridis')
     ax2.set_title(title2)
-    # vmin2, vmax2 = im2.get_clim()
-    # im2.set_clim(vmin1, vmax1)
-    # print(vmin2, vmax2)
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
@@ -62,7 +54,6 @@ if __name__ == "__main__":
     source, detector_points, extent = geo.fan_beam_paths(60, arc_radians, radians, extent=True)
     source = source[0, :, :]
 
-    # grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
     grid = geo.Grid(width=25, height=15, num_x=25, num_y=15)
     grid.draw()
 
@@ -98,69 +89,5 @@ if __name__ == "__main__":
     # nice_double_plot(single_probs.T, double_probs.T, extent, 'Single Neutron Probability',
     #                  'Double Neutron Probability', 'Detector Orientation Angle', 'Source Neutron Direction Angle')
 
-    # alphas = np.linspace(1e-7, 0.3, 500)
-    # norm, residual = algorithms.trace_lcurve(single_probs, response_single, alphas)
-    # plt.figure()
-    # plt.loglog(residual, norm, marker='o')
-    # plt.title('LCurve Single Fission')
-
-    # plt.figure()
-    # curv = algorithms.lcurve_curvature(np.log(residual), np.log(norm))
-    # max_curv = np.argmax(curv)
-    # max_alpha = alphas[max_curv + 1]
-    # plt.plot(alphas[1:-1], curv)
-    # plt.title('Max Single Fission LCurve 2nd Deriv @ alpha = ' + str(max_alpha))
-
-    # recon_single = algorithms.solve_tikhonov(single_probs.reshape((-1)), response_single.reshape((response_single.shape[0], -1)).T, alpha=0.0168)
-    # recon_single = recon_single.reshape(grid.num_y, grid.num_x)
-    # plt.figure(figsize=(6, 4))
-    # plt.imshow(recon_single, interpolation='none', extent=[-25./2, 25./2, -15./2, 15./2], cmap='viridis', vmin=0, vmax=1.0)
-    # plt.title('Single Neutron Reconstruction')
-    # cbar = plt.colorbar()
-    # cbar.ax.get_yaxis().labelpad = 20
-    # cbar.ax.set_ylabel(r'$\mu_{fission} / \mu_{total}$', rotation=270, size=17)
-    # plt.tight_layout()
-
-    # alphas = np.logspace(-4, 0, 50)
-    # gcv_values = np.zeros(alphas.shape)
-    # for i, alpha in enumerate(alphas):
-    #     gcv_values[i] = algorithms.generalized_cross_validation(single_probs.reshape((-1)), response_single.reshape((response_single.shape[0], -1)).T, alpha)
-    #     print(i, alpha, gcv_values[i])
-
-    # gcv = algorithms.generalized_cross_validation(single_probs.reshape((-1)), response_single.reshape((response_single.shape[0], -1)).T, alphas)
-    # plt.loglog(alphas, gcv_values)
-
-    # alphas = np.linspace(1e-7, 0.1, 500)
-    # norm, residual = algorithms.trace_lcurve(double_probs, response_double, alphas)
-    # plt.figure()
-    # plt.loglog(residual, norm, marker='o')
-    # plt.title('LCurve Double Fission')
-
-    # plt.figure()
-    # curv = algorithms.lcurve_curvature(np.log(residual), np.log(norm))
-    # max_curv = np.argmax(curv)
-    # max_alpha = alphas[max_curv + 1]
-    # plt.plot(curv)
-    # plt.title('Max Double Fission LCurve 2nd Deriv @ alpha = ' + str(max_alpha))
-
-    # recon_double = algorithms.solve_tikhonov(double_probs.reshape((-1)), response_double.reshape((response_double.shape[0], -1)).T, alpha=0.00240)
-    # recon_double = recon_double.reshape(grid.num_y, grid.num_x)
-    # plt.figure(figsize=(6, 4))
-    # plt.imshow(recon_double, interpolation='none', extent=[-25./2, 25./2, -15./2, 15./2], cmap='viridis', vmin=0, vmax=1.0)
-    # plt.title('Double Neutron Reconstruction')
-    # cbar = plt.colorbar()
-    # cbar.ax.get_yaxis().labelpad = 20
-    # cbar.ax.set_ylabel(r'$\mu_{fission} / \mu_{total}$', rotation=270, size=17)
-    # plt.tight_layout()
-
-    # recon_simultaneous = algorithms.simultaneous_solve(single_probs.T, response_single.T,
-    #                                                    double_probs.T, response_double.T, alpha=1)
-    # recon_simultaneous = recon_simultaneous.reshape(grid.num_y, grid.num_x)
-    # plt.figure()
-    # plt.imshow(recon_simultaneous, interpolation='none', aspect='auto')
-    # plt.colorbar()
-    # plt.title('Simultaneous Reconstruction')
-
-    # construct simultaneous reconstruction
 
     plt.show()

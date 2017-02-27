@@ -1,3 +1,7 @@
+"""
+Test intersection algorithm results
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scripts.assemblies import shielded_assembly

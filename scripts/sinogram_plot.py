@@ -1,11 +1,13 @@
-import sys
+"""
+Plot transmission sinogram of assembly
+"""
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
 import pytracer.transmission as transmission
-import pytracer.algorithms as algorithms
 
 if __name__ == "__main__":
     assembly_solids = shielded_assembly()
@@ -23,7 +25,6 @@ if __name__ == "__main__":
     plt.title('Transmission Sinogram', size=20)
     plt.xlabel(r'Detector Angle $\theta$ (rad)', size=18)
     plt.ylabel(r'Neutron Angle $\phi$ (rad)', size=18)
-    # cb = plt.colorbar(im, fraction=0.046, pad=0.04)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     cb = plt.colorbar(im, cax=cax)

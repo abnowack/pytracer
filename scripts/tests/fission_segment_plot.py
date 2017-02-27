@@ -1,4 +1,7 @@
-﻿import sys
+﻿"""
+Display fission segments
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scripts.assemblies import shielded_assembly

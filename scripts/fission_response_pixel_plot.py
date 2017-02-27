@@ -1,14 +1,11 @@
 """
-Calculate fission responses for a single grid cell and display the results
+Calculate fission responses for a single grid cell and plot the results
 """
 
-import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from scripts.assemblies import shielded_assembly
 import pytracer.geometry as geo
-import pytracer.transmission as transmission
-import pytracer.algorithms as algorithms
 import pytracer.fission as fission
 
 
@@ -54,7 +51,6 @@ if __name__ == "__main__":
     source, detector_points, extent = geo.fan_beam_paths(60, arc_radians, radians, extent=True)
     source = source[0, :, :]
 
-    # grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
     grid = geo.Grid(width=25, height=15, num_x=50, num_y=30)
     grid.draw()
 
