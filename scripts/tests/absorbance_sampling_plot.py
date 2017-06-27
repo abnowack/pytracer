@@ -26,6 +26,8 @@ if __name__ == "__main__":
 
     image, extent = transmission.absorbance_image(xs, ys, assembly_flat)
 
+    image[image != 0.2] = 0.0
+
     plt.figure()
     plt.imshow(image.T, interpolation='none', extent=extent)
     plt.colorbar()

@@ -185,9 +185,9 @@ def fan_beam_paths(diameter, arc_radians, radians, extent=False):
         return start, end
 
 
-Material = namedtuple('Material', 'color absorbance fission')
+Material = namedtuple('Material', 'color absorbance fission p')
 Solid = namedtuple('Solid', 'segments in_material out_material')
-FlatGeometry = namedtuple('FlatGeometry', 'segments absorbance fission')
+FlatGeometry = namedtuple('FlatGeometry', 'segments absorbance fission pfuncrefs pfuncs')
 
 
 def draw(solids, show_normals=False, fill=True):
@@ -214,7 +214,9 @@ def flatten(solids):
 
     flat_geom = FlatGeometry(segments=np.zeros((num_total_segments, 2, 2)),
                              absorbance=np.zeros((num_total_segments, 2)),
-                             fission=np.zeros((num_total_segments, 2)))
+                             fission=np.zeros((num_total_segments, 2)),
+                             pfuncrefs=np.zeros((num_total_segments, 2), dtype=np.int32),
+                             pfuncs=[None])
 
     index = 0
     for solid in solids:
@@ -222,6 +224,17 @@ def flatten(solids):
         flat_geom.segments[solid_slice] = solid.segments
         flat_geom.absorbance[solid_slice] = [solid.in_material.absorbance, solid.out_material.absorbance]
         flat_geom.fission[solid_slice] = [solid.in_material.fission, solid.out_material.fission]
+
+        # check if pfuncs of in and out materials are present in pfuncs dictionary
+        if solid.in_material.p not in flat_geom.pfuncs:
+            flat_geom.pfuncs.append(solid.in_material.p)
+        if solid.out_material.p not in flat_geom.pfuncs:
+            flat_geom.pfuncs.append(solid.out_material.p)
+
+        # set pfuncrefs to index of pfuncs
+        flat_geom.pfuncrefs[solid_slice] = [flat_geom.pfuncs.index(solid.in_material.p),
+                                            flat_geom.pfuncs.index(solid.out_material.p)]
+
         index += len(solid.segments)
 
     return flat_geom
