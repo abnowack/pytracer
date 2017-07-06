@@ -79,84 +79,78 @@ def generate_p_matrix(nu_dist, name, max_n=100, p_range=100, reload=False):
         p_range = np.linspace(0, crit_value, p_range)
 
     # is matrix already present?
-    matrix_name = os.path.join('data', 'pmatrix_' + name + '.npy')
+    matrix_name = os.path.join('data', 'nudist_matrix_' + name)
     if not reload:
         try:
-            matrix = np.load(matrix_name)
-            if np.array_equal(matrix[0, :len(p_range)], p_range):
-                return matrix
+            matrix_loaded = np.load(matrix_name + '.npz')
+            matrix = matrix_loaded['matrix']
+            p_range = matrix_loaded['p_range']
+            return matrix, p_range
         except FileNotFoundError:
             pass
 
     n_p = len(p_range)
-    matrix = np.zeros((n_p + 1, max_n + 1))
-    matrix[0, :len(p_range)] = p_range
+    matrix = np.zeros((n_p, max_n + 1))
 
-    for i in range(1, n_p + 1):
-        p = p_range[i - 1]
+    for i in range(n_p):
+        p = p_range[i]
         matrix[i] = ndist_noonan(p, nu_dist, max_n)
 
-    np.save(matrix_name, matrix)
+    np.savez(matrix_name, matrix=matrix, p_range=p_range)
 
-    return matrix
+    return matrix, p_range
 
 
 def interpolate_p(matrix, p_value, p_range, method='linear'):
-    # p_range = matrix[0]  # TODO FIX
-
     if method == 'linear':
-        low_index = int(np.digitize(p_value, p_range))
-        high_index = low_index + 1
+        low_index = int(np.digitize(p_value, p_range)) - 1
+        if low_index >= len(p_range) - 1:
+            low_index = len(p_range) - 2
         low_value = p_range[low_index]
+        high_index = low_index + 1
         high_value = p_range[high_index]
 
-        delta = high_value - low_value
-        left_delta = p_value - low_value
-        right_delta = high_value - p_value
-        left_frac = left_delta / delta
-        right_frac = right_delta / delta
-
-        return left_frac * matrix[low_index + 1] + right_frac * matrix[high_index + 1]
+        t = (p_value - low_value) / (high_value - low_value)
+        return matrix[low_index] + (matrix[high_index] - matrix[low_index]) * t
 
 
 if __name__ == '__main__':
 
-    p_range = np.linspace(0, 0.2, 10)
-    p_matrix = generate_p_matrix(nu_pu239_induced, 'pu239', max_n=20, p_range=p_range)
-
-    print(len(p_range), 21, p_matrix[1:].shape)
-
+    p_range = np.linspace(0, 0.2, 10 + 1)
+    p_matrix, p_range = generate_p_matrix(nu_pu239_induced, 'pu239', max_n=20, p_range=p_range, reload=True)
 
     def log_tick_formatter(val, pos=None):
         return "{:.2e}".format(10 ** val)
 
-
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    xs, ys = np.meshgrid(p_range[1:], list(range(21)))
-    # ax.plot_surface(xs, ys, p_matrix[1:].T)
+    xs, ys = np.meshgrid(p_range[1:], list(range(p_matrix.shape[1])))
 
-    minz = np.log10(min(p_matrix[1:, :][p_matrix[1:, :] > 0.0]))
+    minz = np.log10(min(p_matrix[p_matrix > 0.0]))
     print(minz)
 
-    surf = ax.plot_surface(xs, ys, np.log10(p_matrix[2:].T), cmap=cm.coolwarm,
+    surf = ax.plot_surface(xs, ys, np.log10(p_matrix[1:].T), cmap=cm.coolwarm,
                            norm=colors.Normalize(vmin=minz, vmax=1.0))
     ax.zaxis.set_major_formatter(mticker.FuncFormatter(log_tick_formatter))
 
     fig2 = plt.figure()
     ax2 = fig2.add_subplot(111, projection='3d')
-    exp_prange = np.linspace(0, 0.2, 20)
-    xs, ys = np.meshgrid(exp_prange[1:], list(range(21)))
+    exp_prange = np.linspace(0, 0.2, 40 + 1)
+    xs, ys = np.meshgrid(exp_prange[1:], list(range(p_matrix.shape[1])))
     exp_pmatrix = np.zeros((len(exp_prange), 21))
 
     for i in range(len(exp_prange)):
         exp_pmatrix[i] = interpolate_p(p_matrix, exp_prange[i], p_range)
 
-    minz = np.log10(min(exp_pmatrix[1:, :][exp_pmatrix[1:, :] > 0.0]))
+    minz = np.log10(min(exp_pmatrix[exp_pmatrix > 0.0]))
     print(minz)
 
-    surf = ax2.plot_surface(xs, ys, np.log10(exp_pmatrix[2:].T), cmap=cm.coolwarm,
+    surf = ax2.plot_surface(xs, ys, np.log10(exp_pmatrix[1:].T), cmap=cm.coolwarm,
                             norm=colors.Normalize(vmin=minz, vmax=1.0))
     ax2.zaxis.set_major_formatter(mticker.FuncFormatter(log_tick_formatter))
+
+    plt.figure()
+    plt.plot(exp_prange, exp_pmatrix[:, -1])
+    plt.scatter(p_range, p_matrix[:, -1], marker='o', c='red')
 
     plt.show()
