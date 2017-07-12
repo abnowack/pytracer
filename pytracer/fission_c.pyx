@@ -71,17 +71,36 @@ cpdef double probability_segment_neutron(double[:, :, ::1] segments, double[:, :
         cache[0] = fission_segment[0, 0] + (i - 0.5) * (fission_segment[1, 0] - fission_segment[0, 0]) / num_segment_points
         cache[1] = fission_segment[0, 1] + (i - 0.5) * (fission_segment[1, 1] - fission_segment[0, 1]) / num_segment_points
 
-        absorb = absorbance(source, cache[:2], segments, absorbances, universe_absorption, intersect_cache, index_cache)
-        prob_in = exp(-absorb)
+        segment_probability += probability_point_neutron(segments, absorbances, cache, detector_segments,
+                                                         universe_absorption, source, k, nu_dist, mu_fission,
+                                                         intersect_cache, index_cache)
 
-        prob_detect = probability_detect(cache[:2], absorbances, segments, detector_segments, universe_absorption, intersect_cache, index_cache, cache[3:])
-        prob_out = 0.
-        for j in range(np.size(nu_dist)):
-            prob_out += binom(j, k) * nu_dist[j] * pow(prob_detect, k) * pow(1. - prob_detect, j - k)
-
-        segment_probability += prob_in * mu_fission * prob_out * segment_length / num_segment_points
+    segment_probability *= segment_length / num_segment_points
 
     return segment_probability
+
+
+cpdef double probability_point_neutron(double[:, :, ::1] segments, double [:, ::1] absorbances,
+                                       double[::1] cache, double[:, :, ::1] detector_segments,
+                                       double universe_absorption, double[::1] source, int k, double[::1] nu_dist,
+                                       double mu_fission, double[:, ::1] intersect_cache, int[::1] index_cache):
+    cdef:
+        int i
+        double prob_ds, point_probability = 0
+        double prob_in, prob_out, absorb
+
+    absorb = absorbance(source, cache[:2], segments, absorbances, universe_absorption, intersect_cache, index_cache)
+    prob_in = exp(-absorb)
+
+    prob_detect = probability_detect(cache[:2], absorbances, segments, detector_segments, universe_absorption, intersect_cache, index_cache, cache[3:])
+    prob_out = 0.0
+
+    for i in range(np.size(nu_dist)):
+        prob_out += binom(i, k) * nu_dist[i] * pow(prob_detect, k) * pow(1. - prob_detect, i - k)
+
+    point_probability = prob_in * mu_fission * prob_out
+
+    return point_probability
 
 
 cpdef double probability_segment_neutron_grid(double[:, :, ::1] segments, double[:, ::1] absorbances,
