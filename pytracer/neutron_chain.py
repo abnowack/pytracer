@@ -2,14 +2,8 @@
 Fix the p_range size issue with the matrix,
 """
 
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-from matplotlib import cm
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.ticker as mticker
 import numpy as np
 import mpmath as mp
-from collections import namedtuple
 import os
 
 nu_u235_induced = \
@@ -117,45 +111,3 @@ def interpolate_p(matrix, p_value, p_range, method='linear', log_interpolate=Fal
             return 10.0 ** result
         else:
             return matrix[low_index] + (matrix[high_index] - matrix[low_index]) * t
-
-
-if __name__ == '__main__':
-
-    p_range = np.linspace(0, 0.2, 10 + 1)
-    p_matrix, p_range = generate_p_matrix(nu_pu239_induced, 'pu239', max_n=20, p_range=p_range)
-
-    def log_tick_formatter(val, pos=None):
-        return "{:.2e}".format(10 ** val)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    xs, ys = np.meshgrid(p_range[1:], list(range(p_matrix.shape[1])))
-
-    minz = np.log10(min(p_matrix[p_matrix > 0.0]))
-    print(minz)
-
-    surf = ax.plot_surface(xs, ys, np.log10(p_matrix[1:].T), cmap=cm.coolwarm,
-                           norm=colors.Normalize(vmin=minz, vmax=1.0))
-    ax.zaxis.set_major_formatter(mticker.FuncFormatter(log_tick_formatter))
-
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot(111, projection='3d')
-    exp_prange = np.linspace(0, 0.2, 40 + 1)
-    xs, ys = np.meshgrid(exp_prange[1:], list(range(p_matrix.shape[1])))
-    exp_pmatrix = np.zeros((len(exp_prange), 21))
-
-    for i in range(len(exp_prange)):
-        exp_pmatrix[i] = interpolate_p(p_matrix, exp_prange[i], p_range)
-
-    minz = np.log10(min(exp_pmatrix[exp_pmatrix > 0.0]))
-    print(minz)
-
-    surf = ax2.plot_surface(xs, ys, np.log10(exp_pmatrix[1:].T), cmap=cm.coolwarm,
-                            norm=colors.Normalize(vmin=minz, vmax=1.0))
-    ax2.zaxis.set_major_formatter(mticker.FuncFormatter(log_tick_formatter))
-
-    plt.figure()
-    plt.plot(exp_prange, exp_pmatrix[:, -1])
-    plt.scatter(p_range, p_matrix[:, -1], marker='o', c='red')
-
-    plt.show()
