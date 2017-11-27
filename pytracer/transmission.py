@@ -79,8 +79,8 @@ def scan(flat_geom, start, end):
 
 
 def grid_response(flat_geom, grid, start, end):
-    unit_m = geo.Material('black', 1, 0)
-    vacuum = geo.Material('white', 0, 0)
+    unit_m = geo.Material('black', 1, 0, 0)
+    vacuum = geo.Material('white', 0, 0, 0)
 
     flat_start = start.reshape(-1, start.shape[-1])
     flat_end = end.reshape(-1, end.shape[-1])

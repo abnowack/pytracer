@@ -73,7 +73,7 @@ def generate_p_matrix(nu_dist, name, max_n=100, p_range=100, reload=False):
         p_range = np.linspace(0, crit_value, p_range)
 
     # is matrix already present?
-    matrix_name = os.path.join('data', 'nudist_matrix_' + name)
+    matrix_name = os.path.join('scripts', 'data', 'nudist_matrix_' + name)
     if not reload:
         try:
             matrix_loaded = np.load(matrix_name + '.npz')

@@ -7,6 +7,7 @@ from pytracer.geometry_c cimport solid_angle
 from cython cimport cdivision, boundscheck, wraparound
 from libc.math cimport sqrt, acos, fabs, M_PI, exp, pow
 
+
 cpdef unsigned int binom(unsigned int n, unsigned int k):
     cdef:
         unsigned int ans=1

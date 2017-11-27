@@ -5,15 +5,29 @@ Create all of the assemblies of objects here
 
 from pytracer import geometry as geo
 from math import pi
-
-
-def foo(x, y):
-    return 1
-
+import numpy as np
 
 _circle_inner_radius = 2.9
 _circle_outer_radius = 3.9
 _circle_origin = [-9 + _circle_outer_radius + 0.1, 0.]
+
+
+def foo(xs, ys):
+    xs -= _circle_origin[0]
+    ys -= _circle_origin[1]
+    ring_center_radius = (
+                             _circle_outer_radius - _circle_inner_radius) / 2 + _circle_inner_radius
+    xv, yv = np.meshgrid(xs, ys)
+    radius = np.sqrt(xv ** 2 + yv[::-1] ** 2)
+    zs = -0.5 * (radius - ring_center_radius) ** 2 + 0.2
+
+    slope = - 0.05 / (1.1 * _circle_outer_radius)
+    zs += slope * xv - 0.05
+
+    zs[zs < 0] = 0
+
+    return zs
+
 
 def shielded_assembly(fission=False):
     air = geo.Material('white', 0, 0, None)

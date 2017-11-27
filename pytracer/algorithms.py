@@ -2,6 +2,96 @@ import numpy as np
 from scipy.ndimage.interpolation import rotate
 
 
+def solve_direct(d, G):
+    lhs = G.T @ G
+    rhs = G.T @ d
+    m = np.linalg.solve(lhs, rhs)
+
+    return m
+
+
+def solve_tikhonov(d, G, alpha=0):
+    gamma = alpha * np.identity(np.size(G, 1))
+
+    lhs = G.T @ G + gamma.T @ gamma
+    rhs = G.T @ d
+    m = np.linalg.solve(lhs, rhs)
+
+    return m
+
+
+def solve_higher_tikhonov(d, G, L, alpha=0):
+    L2 = alpha * L
+
+    lhs = G.T @ G + L2.T @ L2
+    rhs = G.T @ d
+    m = np.linalg.solve(lhs, rhs)
+
+    return m
+
+
+def solve_higher_tikhonov_L1(d, G, L, iterations=10, epsilon=0.1, alpha=0):
+    m = np.ones(np.size(G, 1))
+
+    for i in range(iterations):
+        y = L @ m
+        y = np.abs(y)
+        y[y < epsilon] = epsilon
+        W = np.diag(1 / y)
+
+        lhs = 2 * G.T @ G + alpha * L.T @ W @ L
+        rhs = 2 * G.T @ d
+        m = np.linalg.solve(lhs, rhs)
+
+    return m
+
+
+def mlem(d, G, n_steps, initial_estimate=None):
+    if initial_estimate is None:
+        m_old = np.ones(np.size(G, 1))
+    else:
+        m_old = initial_estimate
+
+    sensitivity = G.sum(axis=0)
+
+    old_settings = np.seterr(divide='ignore', invalid='ignore')
+
+    for step in range(n_steps):
+        back_projection = G @ m_old
+        relative_back_projection = np.nan_to_num(d / back_projection)
+        correction_factor = (relative_back_projection @ G)
+        m_new = m_old / sensitivity * correction_factor
+        m_old = m_new
+
+    np.seterr(**old_settings)
+
+    return m_new
+
+
+def osem(d, G, n_steps, subset_masks, initial_estimate=None):
+    if initial_estimate is None:
+        m_old = np.ones(np.size(G, 1))
+    else:
+        m_old = initial_estimate
+
+    m_new = np.copy(m_old)
+
+    old_settings = np.seterr(divide='ignore', invalid='ignore')
+
+    for step in range(n_steps):
+        for i, subset in enumerate(subset_masks):
+            mu_i_t = G[subset, :] @ m_old
+            denominator = G[subset, :].sum(axis=0)
+            numerator = np.nan_to_num((d[subset] * G[subset, :].T) / mu_i_t).sum(axis=1)
+            nan_mask = np.where(denominator > 0)
+            m_new[nan_mask] = m_old[nan_mask] * numerator[nan_mask] / denominator[nan_mask]
+            m_old[:] = m_new
+
+    np.seterr(**old_settings)
+
+    return m_new
+
+
 def generalized_cross_validation(d, G, alpha):
     m = np.size(G, 0)
     L = np.identity(np.size(G, 1))
@@ -15,17 +105,6 @@ def generalized_cross_validation(d, G, alpha):
     gcv_value = num / denom
 
     return gcv_value
-
-
-def solve_tikhonov(d, G, alpha=0):
-    gamma = alpha * np.identity(np.size(G, 1))
-
-    lhs = G.T @ G + gamma.T @ gamma
-    rhs = G.T @ d
-    inv = np.linalg.inv(lhs)
-    m = inv @ rhs
-
-    return m
 
 
 def trace_lcurve(d, G, alphas):
