@@ -5,6 +5,7 @@ Fix the p_range size issue with the matrix,
 import numpy as np
 import mpmath as mp
 import os
+from . import neutron_chain_c as nchain_c
 
 nu_u235_induced = \
     np.array([0.0237898, 0.1555525, 0.3216515, 0.3150433, 0.1444732, 0.0356013, 0.0034339, 0.0004546])
@@ -111,3 +112,29 @@ def interpolate_p(matrix, p_value, p_range, method='linear', log_interpolate=Fal
             return 10.0 ** result
         else:
             return matrix[low_index] + (matrix[high_index] - matrix[low_index]) * t
+
+
+def pfuncref_at_point(point, flat_geom):
+    return nchain_c.pfuncref_at_point(point[0], point[1], flat_geom.segments, flat_geom.pfuncrefs)
+
+
+def pfuncref_image(xs, ys, flat_geom):
+    image = np.zeros((np.size(xs, 0), np.size(ys, 0)), dtype=np.int)
+    extent = [xs[0], xs[-1], ys[0], ys[-1]]
+
+    nchain_c.pfuncref_image(image, xs, ys, flat_geom.segments, flat_geom.pfuncrefs)
+
+    # not sure why I need to transpose it
+    return image.T, extent
+
+
+def p_image(xs, ys, flat_geom):
+    pfuncref_im, extent = pfuncref_image(xs, ys, flat_geom)
+    p_im = np.zeros(pfuncref_im.shape)
+    for i in range(len(flat_geom.pfuncs)):
+        mask = pfuncref_im == i
+        pfunc = flat_geom.pfuncs[i]
+        if pfunc is not None:
+            p_im[mask] = pfunc(xs, ys)[mask]
+
+    return p_im, extent

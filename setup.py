@@ -14,6 +14,6 @@ setup(
     package_dir={'pytracer': 'pytracer'},
     packages=['pytracer'],
     ext_modules=cythonize(['pytracer/transmission_c.pyx', 'pytracer/geometry_c.pyx',
-                           'pytracer/fission_c.pyx']),
+                           'pytracer/fission_c.pyx', 'pytracer/neutron_chain_c.pyx']),
     include_dirs=[numpy.get_include()]
 )
