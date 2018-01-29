@@ -6,6 +6,44 @@ from . import geometry_c as geo_c
 _array1D_cache = np.empty(300, dtype=np.double)
 
 
+def interp_points_rectangle(pts, interp_frac=0.1):
+    ipoints = np.zeros((5, 2), dtype=np.float64)
+
+    # first diagonal
+    p1 = pts[0]
+    p2 = pts[2]
+
+    dir_vector = p2 - p1
+    ip1 = p1 + interp_frac * dir_vector
+    ip2 = p1 + (1 - interp_frac) * dir_vector
+
+    # first diagonal
+    p3 = pts[1]
+    p4 = pts[3]
+
+    dir_vector = p4 - p3
+    ip3 = p3 + interp_frac * dir_vector
+    ip4 = p3 + (1 - interp_frac) * dir_vector
+
+    # intersection
+    ua = (p4[0] - p3[0]) * (p1[1] - p3[1]) - (p4[1] - p3[1]) * (p1[0] - p3[0])
+    ua /= (p4[1] - p3[1]) * (p2[0] - p1[0]) - (p4[0] - p3[0]) * (p2[1] - p1[1])
+
+    ub = (p2[0] - p1[0]) * (p1[1] - p3[1]) - (p2[1] - p1[1]) * (p1[0] - p3[0])
+    ub /= (p4[1] - p3[1]) * (p2[0] - p1[0]) - (p4[0] - p3[0]) * (p2[1] - p1[1])
+
+    isec_x = p1[0] + ua * (p2[0] - p1[0])
+    isec_y = p1[1] + ua * (p2[1] - p1[1])
+
+    ipoints[0] = ip1
+    ipoints[1] = ip2
+    ipoints[2] = ip3
+    ipoints[3] = ip4
+    ipoints[4] = [isec_x, isec_y]
+
+    return ipoints
+
+
 def center(segments):
     """Calculates midpoints from line segments."""
     return (segments[:, 0] + segments[:, 1]) / 2
@@ -266,7 +304,7 @@ class Grid(object):
         ix = i % (np.size(self.points, 1) - 1)
         iy = i // (np.size(self.points, 1) - 1)
 
-        grid_points = np.zeros((4, 2), dtype=np.double)
+        grid_points = np.zeros((4, 2), dtype=np.float64)
         grid_points[0] = self.points[iy, ix]
         grid_points[1] = self.points[iy, ix + 1]
         grid_points[2] = self.points[iy + 1, ix + 1]

@@ -114,10 +114,6 @@ def interpolate_p(matrix, p_value, p_range, method='linear', log_interpolate=Fal
             return matrix[low_index] + (matrix[high_index] - matrix[low_index]) * t
 
 
-def pfuncref_at_point(point, flat_geom):
-    return nchain_c.pfuncref_at_point(point[0], point[1], flat_geom.segments, flat_geom.pfuncrefs)
-
-
 def pfuncref_image(xs, ys, flat_geom):
     image = np.zeros((np.size(xs, 0), np.size(ys, 0)), dtype=np.int)
     extent = [xs[0], xs[-1], ys[0], ys[-1]]
@@ -126,6 +122,15 @@ def pfuncref_image(xs, ys, flat_geom):
 
     # not sure why I need to transpose it
     return image.T, extent
+
+
+def p_at_point(point, flat_geom):
+    pfuncref_out = nchain_c.pfuncref_at_point(point[0], point[1], flat_geom.segments, flat_geom.pfuncrefs)
+    pfunc = flat_geom.pfuncs[pfuncref_out]
+    if pfunc is not None:
+        return float(pfunc(point[0], point[1]))
+    else:
+        return 0.0
 
 
 def p_image(xs, ys, flat_geom):
