@@ -1,22 +1,28 @@
 # PyTracer
-Raytracing program written in Python, applying CT reconstruction methods
+Active Neutron Interrogation modelling program
+
+Features :
+- Fast raytracing backend
+- CT transmission modelling
+- Neutron chain statistics calculation
+- Neutron single, double, etc detection probability modelling
+- Various reconstruciton methods (backprojection, L2, L1)
+
+Build :
+```
+cd pytacer
+python setup.py build_ext --inplace
+```
+
+[See Examples](./scripts/notebooks)
 
 TODO :
-- [x] Fix attenuation giving incorrect sign
-- [x] Convert fission.py to Cython
-- [x] Fast scan methods for doing singles and doubles measurements easily
-- [x] Create single fission response
+- [ ] Implement Forward projection using fission probability image estimate
+- [ ] Calculate Noonan derivatives
+- [ ] Build Derivative Matrix
+- [ ] Get Updated fission probability image estimate
+- [ ] Use Occam's Inversion method for fission probability image reconstruction
 
-- [ ] Turn find_absorbance/fission at point functions / scripts into Cython functions
-
-- [ ] Forward projection for fission
-    - [ ] Split up into several parts
-- [ ] Compare Normalization for transmission and fission forward projections
-- [ ] Normalized reconstruction methods
-- [ ] Plot fission reconstruction error for different nu around nu_true
-- [ ]
-
-Longer Term TODO :
+TODO (Longer Term) :
 - [ ] Implement a BVH tree for segment intersection speed up
-- [ ] Convert to gpu through CUDA (optional backend)
-- [ ] L1-norm reconstruction methods
+- [ ] Convert raytracing backend to CUDA (optional)
