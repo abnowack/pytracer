@@ -20,7 +20,7 @@ def fissionval_image(xs, ys, flat_geom):
 
     transmission_c.absorbance_image(image, xs, ys, flat_geom.segments, flat_geom.fission)
 
-    return image, extent
+    return image.T, extent
 
 
 # TODO Cython

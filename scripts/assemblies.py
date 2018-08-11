@@ -15,8 +15,7 @@ _circle_origin = [-9 + _circle_outer_radius + 0.1, 0.]
 def foo(xs, ys):
     xs -= _circle_origin[0]
     ys -= _circle_origin[1]
-    ring_center_radius = (
-                             _circle_outer_radius - _circle_inner_radius) / 2 + _circle_inner_radius
+    ring_center_radius = (_circle_outer_radius - _circle_inner_radius) / 2 + _circle_inner_radius
     xv, yv = np.meshgrid(xs, ys)
     radius = np.sqrt(xv ** 2 + yv[::-1] ** 2)
     zs = -0.5 * (radius - ring_center_radius) ** 2 + 0.2
@@ -29,7 +28,7 @@ def foo(xs, ys):
     return zs
 
 
-def shielded_assembly(fission=False):
+def shielded_assembly():
     air = geo.Material('white', 0, 0, None)
     u235_metal = geo.Material('green', 0.2, 0.1, foo)
     poly = geo.Material('red', 0.3, 0, None)
@@ -38,7 +37,6 @@ def shielded_assembly(fission=False):
     box = geo.create_hollow(geo.create_rectangle(20, 10), geo.create_rectangle(18, 8))
 
     hollow_circle = geo.create_hollow(geo.create_circle(_circle_outer_radius), geo.create_circle(_circle_inner_radius))
-    # hollow_circle = geo.create_arc(3.9)
     geo.translate(hollow_circle, _circle_origin)
 
     small_box_1 = geo.create_rectangle(2, 2)

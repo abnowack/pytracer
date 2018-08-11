@@ -16,7 +16,7 @@ def absorbance_image(xs, ys, flat_geom):
 
     trans_c.absorbance_image(image, xs, ys, flat_geom.segments, flat_geom.absorbance)
 
-    return image, extent
+    return image.T, extent
 
 
 def intersections(start, end, segments, intersect_cache=None, index_cache=None, ray=False):
