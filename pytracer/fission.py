@@ -153,12 +153,13 @@ def probability_path_neutron(start, end, flat_geom, detector_segments, k, matrix
 # TODO Cython
 def scan(source, neutron_paths, detector_points, flat_geom, k, matrix, p_range):
     probs = np.zeros((np.size(source, 0), np.size(neutron_paths, 0)), dtype=np.double)
-    print(np.size(source, 0) * np.size(neutron_paths, 0))
     for i in range(np.size(source, 0)):
+        print(f'\r  {i} / {np.size(source, 0)-1}', end='', flush=True)
         detector_segments = geo.convert_points_to_segments(detector_points[:, i])
         for j in range(np.size(neutron_paths, 0)):
             probs[i, j] = probability_path_neutron(source[i], neutron_paths[j, i], flat_geom, detector_segments,
                                                    k, matrix, p_range)
+    print()
 
     return probs
 

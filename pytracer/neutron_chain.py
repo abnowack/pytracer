@@ -7,6 +7,7 @@ import mpmath as mp
 import os
 from . import neutron_chain_c as nchain_c
 
+# Nuclear Data
 nu_u235_induced = \
     np.array([0.0237898, 0.1555525, 0.3216515, 0.3150433, 0.1444732, 0.0356013, 0.0034339, 0.0004546])
 nu_u238_induced = \
@@ -68,30 +69,19 @@ def ndist_noonan(p, nudist, max_n, dps=None):
     return ns
 
 
-def generate_p_matrix(nu_dist, name, max_n=100, p_range=100, reload=False):
+def generate_p_matrix(nu_dist, max_n=100, p_range=100):
     if type(p_range) is int:
         crit_value = critical_p(nu_dist)
         p_range = np.linspace(0, crit_value, p_range)
-
-    # is matrix already present?
-    matrix_name = os.path.join('scripts', 'data', 'nudist_matrix_' + name)
-    if not reload:
-        try:
-            matrix_loaded = np.load(matrix_name + '.npz')
-            matrix = matrix_loaded['matrix']
-            p_range = matrix_loaded['p_range']
-            return matrix, p_range
-        except FileNotFoundError:
-            pass
 
     n_p = len(p_range)
     matrix = np.zeros((n_p, max_n + 1))
 
     for i in range(n_p):
         p = p_range[i]
+        print(f'\r  {i} / {n_p-1}', end='', flush=True)
         matrix[i] = ndist_noonan(p, nu_dist, max_n)
-
-    np.savez(matrix_name, matrix=matrix, p_range=p_range)
+    print()
 
     return matrix, p_range
 
