@@ -57,6 +57,25 @@ def calc_term_noonan(p, nudist, n, dps=None):
     return ans2.imag
 
 
+def calc_term_noonan_deriv(p, nudist, n, dps=None):
+    if dps:
+        mp.dps = dps
+
+    coeffs = nudist[::-1].tolist()
+
+    def calc_term(z, nudist, p, n):
+        pans = mp.polyval(coeffs, z)
+        ans = z - p * pans
+        ans = (1.0 - p) / ans
+        ans = mp.power(ans, n)
+        ans *= (pans - z) / (z - p * pans)
+        return ans
+
+    ans2 = mp.quad(lambda z: calc_term(z, nudist, p, n), [1, mp.j, -1, -mp.j, 1])
+    ans2 /= 2 * mp.pi
+    return ans2.imag
+
+
 def ndist_noonan(p, nudist, max_n, dps=None):
     ns = np.zeros(max_n + 1)
     if p <= 0.0:
@@ -69,7 +88,22 @@ def ndist_noonan(p, nudist, max_n, dps=None):
     return ns
 
 
-def generate_p_matrix(nu_dist, max_n=100, p_range=100):
+def ndist_noonan_deriv(p, nudist, max_n, dps=None, delta=0.001):
+    ns = np.zeros(max_n + 1)
+    if p <= 0.0:
+        ns[0] = 1
+        return ns
+    # TODO: Is there an analytic expression for the p-derivative of the h0 root
+    root_right = calc_h0(nudist, p+delta)
+    root_left = calc_h0(nudist, p-delta)
+    ns[0] = (root_right - root_left) / (2 * delta)
+
+    for n in range(1, max_n + 1):
+        ns[n] = calc_term_noonan_deriv(p, nudist, n, dps)
+    return ns
+
+
+def generate_p_matrix(nu_dist, max_n=100, p_range=100, deriv=False):
     if type(p_range) is int:
         crit_value = critical_p(nu_dist)
         p_range = np.linspace(0, crit_value, p_range)
@@ -80,7 +114,10 @@ def generate_p_matrix(nu_dist, max_n=100, p_range=100):
     for i in range(n_p):
         p = p_range[i]
         print(f'\r  {i} / {n_p-1}', end='', flush=True)
-        matrix[i] = ndist_noonan(p, nu_dist, max_n)
+        if deriv:
+            matrix[i] = ndist_noonan_deriv(p, nu_dist, max_n)
+        else:
+            matrix[i] = ndist_noonan(p, nu_dist, max_n)
     print()
 
     return matrix, p_range
@@ -133,3 +170,4 @@ def p_image(xs, ys, flat_geom):
             p_im[mask] = pfunc(xs, ys)[mask]
 
     return p_im, extent
+

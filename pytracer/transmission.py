@@ -68,16 +68,6 @@ def attenuations(start, end, segments, seg_absorbance, universe_absorbance=0.0,
     return absorb
 
 
-def scan(flat_geom, start, end):
-    absorb = np.zeros((start.shape[:-1]), dtype=np.double)
-    flat_start = start.reshape(-1, start.shape[-1])
-    flat_end = end.reshape(-1, end.shape[-1])
-
-    absorbances(flat_start, flat_end, flat_geom.segments, flat_geom.absorbance, 0, absorbance_cache=absorb.ravel())
-
-    return absorb
-
-
 def grid_response(flat_geom, grid, start, end):
     unit_m = geo.Material('black', 1, 0, 0)
     vacuum = geo.Material('white', 0, 0, 0)
