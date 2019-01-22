@@ -2,6 +2,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def draw_algorithm(extent, pixels):
+
+    plt.imshow(pixels.T, extent=extent, origin='lower')
+
+    # vertical lines
+    for i in range(np.size(pixels, 0) + 1):
+        x = extent[0] + (extent[1] - extent[0]) / np.size(pixels, 0) * i
+        plt.plot([x, x], [extent[2], extent[3]], 'g')
+
+    # horizontal lines
+    for i in range(np.size(pixels, 1) + 1):
+        y = extent[2] + (extent[3] - extent[2]) / np.size(pixels, 1) * i
+        plt.plot([extent[0], extent[1]], [y, y], 'g')
+
+
+def draw_line(line, draw_option='r-'):
+    plt.plot([line[0], line[2]], [line[1], line[3]], draw_option, lw=1)
+
+
 def draw_alpha(line, alpha, color='red'):
     point_x = line[0] + alpha * (line[2] - line[0])
     point_y = line[1] + alpha * (line[3] - line[1])
@@ -187,144 +206,13 @@ def raytrace2(line, extent, pixels):
     pixel_i = [floor(phi_x((alpha_arr[m] + alpha_arr[m-1]) / 2)) for m in range(1, len(alpha_arr))]
     pixel_j = [floor(phi_y((alpha_arr[m] + alpha_arr[m-1]) / 2)) for m in range(1, len(alpha_arr))]
 
-    print([(pi, pj) for (pi, pj) in zip(pixel_i, pixel_j)])
-
-    for (pi, pj) in zip(pixel_i, pixel_j):
-        pixels[pi, pj] = 1
-
-    draw_algorithm(line, extent, pixels)
-    for alpha in alpha_arr:
-        draw_alpha(line, alpha)
-
     d_conv = sqrt((p2x - p2x)**2 + (p2y - p1y)**2)
     lengths = [(alpha_arr[m] - alpha_arr[m-1]) * d_conv for m in range(1, len(alpha_arr))]
-    integral = sum(pixels[pixel_i, pixel_j] * lengths)
-    print(integral, d_conv)
+    # integral = sum(pixels[pixel_i, pixel_j] * lengths)
+    return sum(lengths)
 
 
-def raytrace3(line, extent, pixels):
-    from math import floor, ceil, sqrt
-
-    Nx, Ny = np.size(pixels, 0) + 1, np.size(pixels, 1) + 1
-    p1x, p1y, p2x, p2y = line
-    bx, by = extent[0], extent[2]
-    dx, dy = (extent[1] - extent[0]) / (Nx - 1), (extent[3] - extent[2]) / (Ny - 1)
-
-    px = lambda a: p1x + a * (p2x - p1x)
-    py = lambda a: p1y + a * (p2y - p1y)
-
-    alpha_x = lambda i: ((bx + i * dx) - p1x) / (p2x - p1x)
-    alpha_y = lambda j: ((by + j * dy) - p1y) / (p2y - p1y)
-    print(alpha_x(0), alpha_y(0))
-
-    alpha_xmin = min(alpha_x(0), alpha_x(Nx - 1))
-    alpha_ymin = min(alpha_y(0), alpha_y(Ny - 1))
-
-    alpha_xmax = max(alpha_x(0), alpha_x(Nx - 1))
-    alpha_ymax = max(alpha_y(0), alpha_y(Ny - 1))
-
-    # for a ray, remove the 0, 1 in min max calcs
-    alpha_min = max(alpha_xmin, alpha_ymin)
-    alpha_max = min(alpha_xmax, alpha_ymax)
-
-    print(alpha_min, alpha_max)
-    print()
-
-    if alpha_min >= alpha_max:
-        raise ArithmeticError
-
-    # different here
-    phi_x = lambda a: (px(a) - bx) / dx
-    phi_y = lambda a: (py(a) - by) / dy
-
-    if p1x < p2x:
-        if alpha_min == alpha_xmin:
-            i_min = 1
-        else:
-            i_min = ceil(phi_x(alpha_min))
-
-        if alpha_max == alpha_xmax:
-            i_max = Nx - 1
-        else:
-            i_max = floor(phi_x(alpha_max))
-    else:
-        if alpha_min == alpha_xmin:
-            i_max = Nx - 2
-        else:
-            i_max = floor(phi_x(alpha_min))
-
-        if alpha_max == alpha_xmax:
-            i_min = 0
-        else:
-            i_min = ceil(phi_x(alpha_max))
-
-    if p1y < p2y:
-        if alpha_min == alpha_ymin:
-            j_min = 1
-        else:
-            j_min = ceil(phi_y(alpha_min))
-
-        if alpha_max == alpha_ymax:
-            j_max = Ny - 1
-        else:
-            j_max = floor(phi_y(alpha_max))
-    else:
-        if alpha_min == alpha_ymin:
-            j_max = Ny - 2
-        else:
-            j_max = floor(phi_y(alpha_min))
-
-        if alpha_max == alpha_ymax:
-            j_min = 0
-        else:
-            j_min = ceil(phi_y(alpha_max))
-
-    Np = (i_max - i_min + 1) + (j_max - j_min + 1)
-    ax = alpha_x(0)
-    ay = alpha_y(0)
-
-    mid = (min(ax, ay) + alpha_min) / 2
-    print(px(mid), py(mid))
-    print(mid, phi_x(mid), phi_y(mid))
-    i_ = floor(phi_x(mid))
-    j_ = floor(phi_y(mid))
-    print(i_, j_)
-
-    d12 = 0
-    a_c = alpha_min
-
-    axu = dx / abs(p2x - p1x)
-    ayu = dy / abs(p2y - p1y)
-
-    draw_algorithm(line, extent, pixels)
-    # draw_alpha(line, alpha_min)
-
-    for k in range(Np):
-        if ax < ay:
-            d12 += (ax - a_c) * pixels[i_, j_]
-            i_ += 1 if p1x < p2x else -1
-            a_c = ax
-            ax += axu
-        else:
-            d12 += (ay - a_c) * pixels[i_, j_]
-            j_ += 1 if p1y < p2y else -1
-            a_c = ay
-            ay += ayu
-        draw_alpha(line, a_c)
-        # print(ax, ay)
-        # print(i_, j_)
-        # print()
-
-    draw_alpha(line, alpha_x(0))
-    draw_alpha(line, alpha_y(0))
-
-    d_conv = sqrt((p2x - p2x) ** 2 + (p2y - p1y) ** 2)
-    d12 *= d_conv
-
-    print(d12, d_conv)
-
-
-def raytrace4(line, extent, pixels):
+def raytrace4(line, extent, pixels, debug=False):
     # Fixed issue, alphax[0] in Filip Jacob's paper means first alphax in siddon array, not alphax at zero.
     # need to modify for a segment contained within pixel space, neccessary for fission calcs
 
@@ -416,7 +304,9 @@ def raytrace4(line, extent, pixels):
     i = floor(phix(alphamid))
     j = floor(phiy(alphamid))
 
-    print(i, j)
+    if debug:
+        draw_alpha(line, alphamin, color='blue')
+        draw_alpha(line, alphamax, color='orange')
 
     alphaxu = dx / abs(p2x - p1x)
     alphayu = dy / abs(p2y - p1y)
@@ -424,63 +314,281 @@ def raytrace4(line, extent, pixels):
     d12 = 0
     dconv = ((p2x - p1x)**2 + (p2y - p1y)**2)**0.5
     alphac = alphamin
-    draw_alpha(line, alphac)
+
+    if debug:
+        draw_alpha(line, alphac)
+
+    if p1x < p2x:
+        iu = 1
+    else:
+        iu = -1
+
+    if p1y < p2y:
+        ju = 1
+    else:
+        ju = -1
 
     for k in range(Np):
-        if p1x < p2x:
-            iu = 1
-        else:
-            iu = -1
-
-        if p1y < p2y:
-            ju = 1
-        else:
-            ju = -1
-
-        pixels[i, j] = 1
 
         if alphax_ < alphay_:
             lij = (alphax_ - alphac) * dconv
-            d12 = d12 + lij * 1
+            d12 = d12 + lij * pixels[i, j]
             i = i + iu
             alphac = alphax_
             alphax_ = alphax_ + alphaxu
         else:
             lij = (alphay_ - alphac) * dconv
-            d12 = d12 + lij * 1
+            d12 = d12 + lij * pixels[i, j]
             j = j + ju
             alphac = alphay_
             alphay_ = alphay_ + alphayu
 
-        draw_alpha(line, alphac)
+        if debug:
+            draw_alpha(line, alphac)
 
-    print(alphamax, alphamin)
-    print(d12, dconv * (alphamax - alphamin))
+    # have to think about this for case of line in and outside of image
+    # alphamax == 1 means last point is in image
+    # alphamin == 0 means first point is in image
+    # print(alphamax, alphamin, alphaxmin, alphaxmax)
+    if alphamax == 1:
+        lij = (alphamax - alphac) * dconv
+        d12 = d12 + lij * pixels[i, j]
 
-    draw_algorithm(line, extent, pixels)
+        if debug:
+            draw_alpha(line, alphamax)
 
-def draw_algorithm(line, extent, pixels):
+    if debug:
+        draw_algorithm(extent, pixels)
+        draw_line(line)
 
-    plt.imshow(pixels.T, extent=extent, origin='lower')
+    return d12
 
-    plt.plot([line[0], line[2]], [line[1], line[3]], 'k-')
 
-    # vertical lines
-    for i in range(np.size(pixels, 0) + 1):
-        x = extent[0] + (extent[1] - extent[0]) / np.size(pixels, 0) * i
-        plt.plot([x, x], [extent[2], extent[3]], 'g')
+def performance_measure_test_outside(seed=8675309, nruns=5000, npixels=50, debug=False):
+    import random
 
-    # horizontal lines
-    for i in range(np.size(pixels, 1) + 1):
-        y = extent[2] + (extent[3] - extent[2]) / np.size(pixels, 1) * i
-        plt.plot([extent[0], extent[1]], [y, y], 'g')
+    def distance(line):
+        return ((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2) ** 0.5
+
+    def outside_intersection_distance(line, extent):
+        x1, y1, x2, y2 = line
+        x3, x4, y3, y4 = extent
+
+        def intersection(x1, x2, y1, y2, x3, x4, y3, y4):
+            denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+            if denom != 0:
+                t = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)
+                t /= denom
+                u = - ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3))
+                u /= denom
+
+                if 0 <= t <= 1 and 0 <= u <= 1:
+                    return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]
+
+            return None
+
+        top_intersection = intersection(x1, x2, y1, y2, x3, x4, y4, y4)
+        bottom_intersection = intersection(x1, x2, y1, y2, x3, x4, y3, y3)
+        left_intersection = intersection(x1, x2, y1, y2, x3, x3, y3, y4)
+        right_intersection = intersection(x1, x2, y1, y2, x4, x4, y3, y4)
+
+        intersections = [i for i in [top_intersection, bottom_intersection,
+                         left_intersection, right_intersection] if i is not None]
+
+        true_line = [intersections[0][0], intersections[0][1],
+                     intersections[1][0], intersections[1][1]]
+
+        return distance(true_line)
+
+    image = np.ones((npixels, npixels))
+    extent = [-5, 5, -5, 5]
+
+    plt.figure()
+    draw_algorithm(extent, image)
+
+    random.seed(seed)
+
+    differences = []
+
+    for i in range(nruns):
+        if random.choice([True, False]):
+            line = [extent[0] - 1,
+                    random.uniform(extent[2], extent[3]),
+                    extent[1] + 1,
+                    random.uniform(extent[2], extent[3])]
+            true_value = outside_intersection_distance(line, extent)
+        else:
+            line = [random.uniform(extent[0], extent[1]),
+                    extent[2] - 1,
+                    random.uniform(extent[0], extent[1]),
+                    extent[3] + 1]
+            true_value = outside_intersection_distance(line, extent)
+
+        d12 = raytrace4(line, extent, image, debug)
+        difference = abs(d12 - true_value)
+        if difference > 1e-12:
+            # print(d12, distance(line), abs(d12 - distance(line)))
+            draw_line(line, 'r-')
+        else:
+            draw_line(line)
+        differences.append(difference)
+
+    plt.figure()
+    plt.hist(differences)
+    print()
+
+
+def performance_measure_test_innoutside(seed=8675309, nruns=5000, npixels=50, debug=False):
+    import random
+
+    def distance(line):
+        return ((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2) ** 0.5
+
+    image = np.ones((npixels, npixels))
+    extent = [-5, 5, -5, 5]
+
+    plt.figure()
+    draw_algorithm(extent, image)
+
+    random.seed(seed)
+
+    differences = []
+
+    for i in range(nruns):
+        inside_pt = [random.uniform(extent[0], extent[1]),
+                     random.uniform(extent[2], extent[3])]
+        side = random.choice(['left', 'right', 'top', 'bottom'])
+        if side == 'left':
+            outside_pt = [extent[0]-1, random.uniform(extent[2], extent[3])]
+        elif side == 'right':
+            outside_pt = [extent[1]+1, random.uniform(extent[2], extent[3])]
+        elif side == 'top':
+            outside_pt = [random.uniform(extent[0], extent[1]), extent[3]+1]
+        elif side == 'bottom':
+            outside_pt = [random.uniform(extent[2], extent[3]), extent[2]-1]
+
+        if random.choice([True, False]):
+            line = [inside_pt[0], inside_pt[1], outside_pt[0], outside_pt[1]]
+        else:
+            line = [outside_pt[0], outside_pt[1], inside_pt[0], inside_pt[1]]
+
+        def intersection(x1, x2, y1, y2, x3, x4, y3, y4):
+            denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+            if denom != 0:
+                t = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)
+                t /= denom
+                u = - ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3))
+                u /= denom
+
+                if 0 <= t <= 1 and 0 <= u <= 1:
+                    return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]
+
+            return None
+
+        if side == 'left':
+            intersect = intersection(line[0], line[2], line[1], line[3],
+                                     extent[0], extent[0], extent[2], extent[3])
+        elif side == 'right':
+            intersect = intersection(line[0], line[2], line[1], line[3],
+                                     extent[1], extent[1], extent[2], extent[3])
+        elif side == 'top':
+            intersect = intersection(line[0], line[2], line[1], line[3],
+                                     extent[0], extent[1], extent[3], extent[3])
+        elif side == 'bottom':
+            intersect = intersection(line[0], line[2], line[1], line[3],
+                                     extent[0], extent[1], extent[2], extent[2])
+
+        true_value = distance([inside_pt[0], inside_pt[1], intersect[0], intersect[1]])
+        d12 = raytrace4(line, extent, image, debug)
+        difference = abs(d12 - true_value)
+        if difference > 1e-12:
+            # print(d12, true_value, difference)
+            draw_line(line, 'r-')
+        else:
+            draw_line(line)
+        differences.append(difference)
+
+    plt.figure()
+    plt.hist(differences)
+    print()
+
+
+def performance_measure_test_inside(seed=8675309, nruns=5000, npixels=50, debug=False):
+    import random
+
+    def distance(line):
+        return ((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2) ** 0.5
+
+    image = np.ones((npixels, npixels))
+    extent = [-5, 5, -5, 5]
+
+    plt.figure()
+    draw_algorithm(extent, image)
+
+    random.seed(seed)
+
+    differences = []
+
+    for i in range(nruns):
+        line = [random.uniform(extent[0], extent[1]),
+                random.uniform(extent[2], extent[3]),
+                random.uniform(extent[0], extent[1]),
+                random.uniform(extent[2], extent[3])]
+
+        d12 = raytrace4(line, extent, image, debug)
+        true_value = distance(line)
+        difference = abs(d12 - true_value)
+        if difference > 1e-12:
+            # print(d12, distance(line), abs(d12 - distance(line)))
+            draw_line(line, 'r-')
+        else:
+            draw_line(line)
+        differences.append(difference)
+
+    plt.figure()
+    plt.hist(differences)
+    print()
+
+
+def comparison_test(seed=8675309, nruns=500):
+    import random
+
+    def distance(line):
+        return ((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2) ** 0.5
+
+    image = np.zeros((100, 100))
+    extent = [-5, 5, -5, 5]
+
+    random.seed(seed)
+
+    differences = []
+
+    for i in range(nruns):
+        line = [random.uniform(extent[0], extent[1]),
+                random.uniform(extent[2], extent[3]),
+                random.uniform(extent[0], extent[1]),
+                random.uniform(extent[2], extent[3])]
+
+        d12_jacobs = raytrace4(line, extent, image)
+        d12_siddon = raytrace2(line, extent, image)
+
+        difference = abs(d12_jacobs - d12_siddon)
+        if difference > 1e-12:
+            print(d12_jacobs, d12_siddon, difference)
+        differences.append(difference)
+
+    plt.figure()
+    plt.hist(differences)
+
+
 
 
 if __name__ == '__main__':
-    image = np.zeros((30, 30))
-    extent = [-5, 5, -5, 5]
-    line = [-4.34, -3.1, 2.11, 6.1]
+    performance_measure_test_inside(nruns=100)
+    performance_measure_test_outside(nruns=100)
+    performance_measure_test_innoutside(nruns=100)
+    # performance_measure_test_everywhere(nruns=100)
+    # performance_measure_test_specialcases()
 
-    raytrace4(line, extent, image)
 
     plt.show()
