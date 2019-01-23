@@ -229,17 +229,30 @@ def raytrace4(line, extent, pixels, debug=False):
     alphax = lambda i_: ((bx + i_ * dx) - p1x) / (p2x - p1x)
     alphay = lambda j_: ((by + j_ * dy) - p1y) / (p2y - p1y)
 
-    alphaxmin = min(alphax(0), alphax(Nx - 1))
-    alphaxmax = max(alphax(0), alphax(Nx - 1))
+    if p1x == p2x:
+        alphaxmin = 0
+        alphaxmax = 0
+    else:
+        alphaxmin = min(alphax(0), alphax(Nx - 1))
+        alphaxmax = max(alphax(0), alphax(Nx - 1))
 
-    alphaymin = min(alphay(0), alphay(Ny - 1))
-    alphaymax = max(alphay(0), alphay(Ny - 1))
+    if p1y == p2y:
+        alphaymin = 0
+        alphaymax = 0
+    else:
+        alphaymin = min(alphay(0), alphay(Ny - 1))
+        alphaymax = max(alphay(0), alphay(Ny - 1))
 
-    # consider having two options, functions, etc
-    # if for a line segment, include the 0 in max and 1 in min
-    # if for an infinite line, remove
-    alphamin = max(0, alphaxmin, alphaymin)
-    alphamax = min(1, alphaxmax, alphaymax)
+
+    if p1x == p2x:
+        alphamin = max(0, alphaymin)
+        alphamax = min(1, alphaymax)
+    elif p1y == p2y:
+        alphamin = max(0, alphaxmin)
+        alphamax = min(1, alphaxmax)
+    else:
+        alphamin = max(0, alphaxmin, alphaymin)
+        alphamax = min(1, alphaxmax, alphaymax)
 
     phix = lambda a_: (p12x(a_) - bx) / dx
 
@@ -254,7 +267,10 @@ def raytrace4(line, extent, pixels, debug=False):
         else:
             imax = floor(phix(alphamax))
 
-        alphax_ = alphax(imin)
+        if p1x == p2x:
+            alphax_ = np.inf
+        else:
+            alphax_ = alphax(imin)
 
     else:
         if alphamin == alphaxmin:
@@ -267,7 +283,10 @@ def raytrace4(line, extent, pixels, debug=False):
         else:
             imin = ceil(phix(alphamax))
 
-        alphax_ = alphax(imax)
+        if p1x == p2x:
+            alphax_ = np.inf
+        else:
+            alphax_ = alphax(imax)
 
     phiy = lambda a_: (p12y(a_) - by) / dy
 
@@ -282,7 +301,10 @@ def raytrace4(line, extent, pixels, debug=False):
         else:
             jmax = floor(phiy(alphamax))
 
-        alphay_ = alphay(jmin)
+        if p1y == p2y:
+            alphay_ =  np.inf
+        else:
+            alphay_ = alphay(jmin)
 
     else:
         if alphamin == alphaymin:
@@ -295,7 +317,10 @@ def raytrace4(line, extent, pixels, debug=False):
         else:
             jmin = ceil(phiy(alphamax))
 
-        alphay_ = alphay(jmax)
+        if p1y == p2y:
+            alphay_ = np.inf
+        else:
+            alphay_ = alphay(jmax)
 
     Np = (imax - imin + 1) + (jmax - jmin + 1)
 
@@ -308,8 +333,14 @@ def raytrace4(line, extent, pixels, debug=False):
         draw_alpha(line, alphamin, color='blue')
         draw_alpha(line, alphamax, color='orange')
 
-    alphaxu = dx / abs(p2x - p1x)
-    alphayu = dy / abs(p2y - p1y)
+    if p1x == p2x:
+        alphaxu = 0
+    else:
+        alphaxu = dx / abs(p2x - p1x)
+    if p1y == p2y:
+        alphayu = 0
+    else:
+        alphayu = dy / abs(p2y - p1y)
 
     d12 = 0
     dconv = ((p2x - p1x)**2 + (p2y - p1y)**2)**0.5
@@ -364,7 +395,7 @@ def raytrace4(line, extent, pixels, debug=False):
     return d12
 
 
-def performance_measure_test_outside(seed=8675309, nruns=5000, npixels=50, debug=False):
+def test_outside(seed=8675309, nruns=5000, npixels=50, debug=False):
     import random
 
     def distance(line):
@@ -438,7 +469,7 @@ def performance_measure_test_outside(seed=8675309, nruns=5000, npixels=50, debug
     print()
 
 
-def performance_measure_test_innoutside(seed=8675309, nruns=5000, npixels=50, debug=False):
+def test_innoutside(seed=8675309, nruns=5000, npixels=50, debug=False):
     import random
 
     def distance(line):
@@ -513,7 +544,7 @@ def performance_measure_test_innoutside(seed=8675309, nruns=5000, npixels=50, de
     print()
 
 
-def performance_measure_test_inside(seed=8675309, nruns=5000, npixels=50, debug=False):
+def test_inside(seed=8675309, nruns=5000, npixels=50, debug=False):
     import random
 
     def distance(line):
@@ -550,45 +581,102 @@ def performance_measure_test_inside(seed=8675309, nruns=5000, npixels=50, debug=
     print()
 
 
-def comparison_test(seed=8675309, nruns=500):
-    import random
-
+def test_special_cases(nruns=100, npixels=50):
     def distance(line):
         return ((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2) ** 0.5
 
-    image = np.zeros((100, 100))
+    image = np.ones((npixels, npixels))
     extent = [-5, 5, -5, 5]
 
-    random.seed(seed)
-
-    differences = []
-
-    for i in range(nruns):
-        line = [random.uniform(extent[0], extent[1]),
-                random.uniform(extent[2], extent[3]),
-                random.uniform(extent[0], extent[1]),
-                random.uniform(extent[2], extent[3])]
-
-        d12_jacobs = raytrace4(line, extent, image)
-        d12_siddon = raytrace2(line, extent, image)
-
-        difference = abs(d12_jacobs - d12_siddon)
-        if difference > 1e-12:
-            print(d12_jacobs, d12_siddon, difference)
-        differences.append(difference)
-
     plt.figure()
-    plt.hist(differences)
+    draw_algorithm(extent, image)
 
+    def test_line(line, extent, image, true_value):
+        d12 = raytrace4(line, extent, image)
+        difference = abs(d12 - true_value)
+        if difference > 1e-12:
+            print(d12, true_value, difference)
+            draw_line(line, 'r-')
+        else:
+            draw_line(line)
 
+    # outside lines
+    line = [-6.2, -7.1, -5.4, 7.4]
+    test_line(line, extent, image, 0)
 
+    line = [-5.4, -7.1, -6.1, 7.4]
+    test_line(line, extent, image, 0)
+
+    line = [-5.4, -7.1, 6.1, -7.4]
+    test_line(line, extent, image, 0)
+
+    line = [-5.4, -7.4, 6.1, -7.1]
+    test_line(line, extent, image, 0)
+
+    line = [6.2, -7.1, 5.4, 7.4]
+    test_line(line, extent, image, 0)
+
+    line = [5.4, -7.1, 6.1, 7.4]
+    test_line(line, extent, image, 0)
+
+    line = [-5.4, 7.1, 6.1, 7.4]
+    test_line(line, extent, image, 0)
+
+    line = [-5.4, 7.4, 6.1, 7.1]
+    test_line(line, extent, image, 0)
+
+    # horizontal lines
+    line = [-5.4, 2.11, 6.1, 2.11]
+    test_line(line, extent, image, 10)
+
+    line = [5.4, -2.11, -6.1, -2.11]
+    test_line(line, extent, image, 10)
+
+    # vertical lines
+    line = [2.11, 6.1, 2.11, -5.4]
+    test_line(line, extent, image, 10)
+
+    line = [-2.11, -6.1, -2.11, 5.4]
+    test_line(line, extent, image, 10)
+
+    # horizontal line inside
+    line = [-4.4, 1.11, -4.4+3, 1.11]
+    test_line(line, extent, image, 3)
+
+    # horizontal line inside / outside
+    line = [-6.4, 3.5, -5 + 3, 3.5]
+    test_line(line, extent, image, 3)
+
+    # horizontal line outside / inside
+    line = [6.4, 3.5, 5-3, 3.5]
+    test_line(line, extent, image, 3)
+
+    # vertical line inside
+    line = [1.11, -4.4, 1.11, -4.4+3]
+    test_line(line, extent, image, 3)
+
+    # vertical line inside / outside
+    line = [3.5, -6.4, 3.5, -5 + 3]
+    test_line(line, extent, image, 3)
+
+    # vertical line outside / inside
+    line = [3.5, 6.4, 3.5, 5-3]
+    test_line(line, extent, image, 3)
+
+    # ray within a single pixel
+    line = [1.1, 1.1, 1.12, 1.12]
+    test_line(line, extent, image, distance(line))
+
+    # ray crosses the origin only
+    line = [0.1, 0.1, -0.1, -0.1]
+    test_line(line, extent, image, distance(line))
 
 if __name__ == '__main__':
-    performance_measure_test_inside(nruns=100)
-    performance_measure_test_outside(nruns=100)
-    performance_measure_test_innoutside(nruns=100)
-    # performance_measure_test_everywhere(nruns=100)
-    # performance_measure_test_specialcases()
+    # test_inside(nruns=100)
+    # test_outside(nruns=100)
+    # test_innoutside(nruns=100)
+    # test_everywhere(nruns=100)
+    test_special_cases()
 
 
     plt.show()
