@@ -2,22 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def draw_algorithm(extent, pixels):
+def draw_algorithm(extent, pixels, draw_lines=True):
 
     plt.imshow(pixels.T, extent=extent, origin='lower')
 
-    # vertical lines
-    for i in range(np.size(pixels, 0) + 1):
-        x = extent[0] + (extent[1] - extent[0]) / np.size(pixels, 0) * i
-        plt.plot([x, x], [extent[2], extent[3]], 'g')
+    if draw_lines:
+        # vertical lines
+        for i in range(np.size(pixels, 0) + 1):
+            x = extent[0] + (extent[1] - extent[0]) / np.size(pixels, 0) * i
+            plt.plot([x, x], [extent[2], extent[3]], 'g')
 
-    # horizontal lines
-    for i in range(np.size(pixels, 1) + 1):
-        y = extent[2] + (extent[3] - extent[2]) / np.size(pixels, 1) * i
-        plt.plot([extent[0], extent[1]], [y, y], 'g')
+        # horizontal lines
+        for i in range(np.size(pixels, 1) + 1):
+            y = extent[2] + (extent[3] - extent[2]) / np.size(pixels, 1) * i
+            plt.plot([extent[0], extent[1]], [y, y], 'g')
 
 
-def draw_line(line, draw_option='r-'):
+def draw_line(line, draw_option='c-'):
     plt.plot([line[0], line[2]], [line[1], line[3]], draw_option, lw=1)
 
 
@@ -212,7 +213,7 @@ def raytrace2(line, extent, pixels):
     return sum(lengths)
 
 
-def raytrace4(line, extent, pixels, debug=False):
+def raytrace4(line, extent, pixels, debug=False, display_pixels=False):
     # Fixed issue, alphax[0] in Filip Jacob's paper means first alphax in siddon array, not alphax at zero.
     # need to modify for a segment contained within pixel space, neccessary for fission calcs
 
@@ -360,6 +361,8 @@ def raytrace4(line, extent, pixels, debug=False):
         ju = -1
 
     for k in range(Np):
+        if display_pixels:
+            pixels[i, j] = 1
 
         if alphax_ < alphay_:
             lij = (alphax_ - alphac) * dconv
@@ -382,6 +385,9 @@ def raytrace4(line, extent, pixels, debug=False):
     # alphamin == 0 means first point is in image
     # print(alphamax, alphamin, alphaxmin, alphaxmax)
     if alphamax == 1:
+        if display_pixels:
+            pixels[i, j] = 1
+
         lij = (alphamax - alphac) * dconv
         d12 = d12 + lij * pixels[i, j]
 
@@ -544,13 +550,16 @@ def test_innoutside(seed=8675309, nruns=5000, npixels=50, debug=False):
     print()
 
 
-def test_inside(seed=8675309, nruns=5000, npixels=50, debug=False):
+def test_inside(seed=8675309, nruns=5000, npixels=50, debug=False, display_pixels=False):
     import random
 
     def distance(line):
         return ((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2) ** 0.5
 
-    image = np.ones((npixels, npixels))
+    if display_pixels:
+        image = np.zeros((npixels, npixels))
+    else:
+        image = np.ones((npixels, npixels))
     extent = [-5, 5, -5, 5]
 
     plt.figure()
@@ -566,11 +575,10 @@ def test_inside(seed=8675309, nruns=5000, npixels=50, debug=False):
                 random.uniform(extent[0], extent[1]),
                 random.uniform(extent[2], extent[3])]
 
-        d12 = raytrace4(line, extent, image, debug)
+        d12 = raytrace4(line, extent, image, debug, display_pixels)
         true_value = distance(line)
         difference = abs(d12 - true_value)
         if difference > 1e-12:
-            # print(d12, distance(line), abs(d12 - distance(line)))
             draw_line(line, 'r-')
         else:
             draw_line(line)
@@ -671,12 +679,47 @@ def test_special_cases(nruns=100, npixels=50):
     line = [0.1, 0.1, -0.1, -0.1]
     test_line(line, extent, image, distance(line))
 
+
+def test_object(nrays=100):
+    import pytracer.transmission as transmission
+    import pytracer.geometry as geo
+    from scripts.assemblies import shielded_assembly
+
+    xs = np.linspace(-11, 11, 200)
+    ys = np.linspace(-6, 6, 200)
+
+    assembly = shielded_assembly()
+    assembly_flat = geo.flatten(assembly)
+
+    # truth
+    mu_image, extent = transmission.absorbance_image(xs, ys, assembly_flat)
+    mu_image = mu_image.T
+
+    draw_algorithm(extent, mu_image, draw_lines=False)
+
+    radians = np.array([0.2]) #np.linspace(0, np.pi, 100)
+    arc_radians = np.linspace(-np.pi / 8, np.pi / 8, nrays)
+    start, end = geo.fan_beam_paths(60, arc_radians, radians, extent=False)
+    for (s, e) in zip(start[:, 0], end[:, 0]):
+        plt.plot([s[0], e[0]], [s[1], e[1]], color='blue', ls='-', lw=0.2)
+
+    d12_values = np.zeros(nrays)
+    d12_index = 0
+
+    for (s, e) in zip(start[:, 0], end[:, 0]):
+        line = [s[0], s[1], e[0], e[1]]
+
+        d12_values[d12_index] = raytrace4(line, extent, mu_image)
+        d12_index += 1
+
+    plt.figure()
+    plt.plot(arc_radians, d12_values)
+
 if __name__ == '__main__':
-    # test_inside(nruns=100)
+    # test_inside(nruns=1, debug=True, display_pixels=True)
     # test_outside(nruns=100)
     # test_innoutside(nruns=100)
-    # test_everywhere(nruns=100)
-    test_special_cases()
-
+    # test_special_cases()
+    test_object()
 
     plt.show()
