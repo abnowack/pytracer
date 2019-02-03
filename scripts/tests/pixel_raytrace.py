@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+# import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
+# import raytrace_c
 
 
 def draw_algorithm(extent, pixels, draw_lines=True):
@@ -29,193 +31,8 @@ def draw_alpha(line, alpha, color='red'):
     plt.scatter(point_x, point_y, color=color)
 
 
-def raytrace(line, extent, pixels):
-
-    x1, y1, x2, y2 = line
-
-    # 1. alpha min and max
-
-    Nx, Ny = np.size(pixels, 0) + 1, np.size(pixels, 1) + 1
-
-    XPlane_1, XPlane_N, YPlane_1, YPlane_N = extent
-
-    if x2 != x1:
-        alpha_x_1 = (XPlane_1 - x1) / (x2 - x1)
-        alpha_x_N = (XPlane_N - x1) / (x2 - x1)
-        min_alpha_x = min(alpha_x_1, alpha_x_N)
-        max_alpha_x = max(alpha_x_1, alpha_x_N)
-    else:
-        min_alpha_x = 0
-        max_alpha_x = 1
-
-    if y2 != y1:
-        alpha_y_1 = (YPlane_1 - y1) / (y2 - y1)
-        alpha_y_N = (YPlane_N - y1) / (y2 - y1)
-        min_alpha_y = min(alpha_y_1, alpha_y_N)
-        max_alpha_y = max(alpha_y_1, alpha_y_N)
-    else:
-        min_alpha_y = 0
-        max_alpha_y = 1
-
-    alpha_min = max(0, min_alpha_x, min_alpha_y)
-    alpha_max = min(1, max_alpha_x, max_alpha_y)
-
-    # 2. calculate range of indexes, i,j,k min and max
-
-    dx = (XPlane_N - XPlane_1) / np.size(pixels, 0)
-    dy = (YPlane_N - YPlane_1) / np.size(pixels, 1)
-
-    if (x2 - x1) >= 0:
-        i_min = Nx - (XPlane_N - alpha_min * (x2 - x1) - x1) / dx
-        i_max = 1 + (x1 + alpha_max * (x2 - x1) - XPlane_1) / dx
-    else:
-        i_min = Nx - (XPlane_N - alpha_max * (x2 - x1) - x1) / dx
-        i_max = 1 + (x1 + alpha_min * (x2 - x1) - XPlane_1) / dx
-    if (y2 - y1) >= 0:
-        j_min = Ny - (YPlane_N - alpha_min * (y2 - y1) - y1) / dy
-        j_max = 1 + (y1 + alpha_max * (y2 - y1) - YPlane_1) / dy
-    else:
-        j_min = Ny - (YPlane_N - alpha_max * (y2 - y1) - y1) / dy
-        j_max = 1 + (y1 + alpha_min * (y2 - y1) - YPlane_1) / dy
-
-    # 3. calculate parametric sets alpha x,y,z
-
-    i_min, i_max = int(i_min), int(i_max)
-    j_min, j_max = int(j_min), int(j_max)
-
-    if (x2 - x1) < 0:
-        alpha_x = [((XPlane_1 + (i - 1) * dx) - x1) / (x2 - x1) for i in range(i_min, i_max+1)]
-    elif x2 != x1:
-        alpha_x = [((XPlane_1 + (i - 1) * dx) - x1) / (x2 - x1) for i in range(i_max, i_min + 1)]
-    else:
-        alpha_x = []
-
-    if (y2 - y1) < 0:
-        alpha_y = [((YPlane_1 + (j - 1) * dy) - y1) / (y2 - y1) for j in range(j_min, j_max+1)]
-    elif y2 != y1:
-        alpha_y = [((YPlane_1 + (j - 1) * dy) - y1) / (y2 - y1) for j in range(j_max, j_min + 1)]
-    else:
-        alpha_y = []
-
-    # 4. merge to form set alpha
-
-    alphas = [alpha_min] + alpha_x + alpha_y + [alpha_max]
-    alphas = sorted(alphas)
-    alphas_sort = [alpha for n, alpha in enumerate(alphas) if alpha not in alphas[:n] and alpha >= alpha_min and alpha <= alpha_max]
-
-    alphas_mid = [(alphas_sort[i] + alphas_sort[i-1]) / 2 for i in range(1, len(alphas_sort))]
-
-    i_index = [int(1 + (x1 + alpha_mid * (x2 - x1) - XPlane_1) / dx) for alpha_mid in alphas_mid]
-    j_index = [int(1 + (y1 + alpha_mid * (y2 - y1) - YPlane_1) / dy) for alpha_mid in alphas_mid]
-
-    for (i, j) in zip(i_index, j_index):
-        pixels[i-1, j-1] = 1
-
-    draw_algorithm(line, extent, pixels)
-    for alpha in alphas_mid:
-        draw_alpha(line, alpha)
-
-    # 5. calculate voxel lengths
-    # 6. calculate voxel indices
-
-def raytrace2(line, extent, pixels):
-    from math import floor, ceil, sqrt
-
-    Nx, Ny = np.size(pixels, 0) + 1, np.size(pixels, 1) + 1
-    p1x, p1y, p2x, p2y = line
-    bx, by = extent[0], extent[2]
-    dx, dy = (extent[1] - extent[0]) / (Nx - 1), (extent[3] - extent[2]) / (Ny - 1)
-
-    px = lambda a: p1x + a * (p2x - p1x)
-    py = lambda a: p1y + a * (p2y - p1y)
-
-    alpha_x = lambda i: ((bx + i * dx) - p1x) / (p2x - p1x)
-    alpha_y = lambda j: ((by + j * dy) - p1y) / (p2y - p1y)
-
-    alpha_xmin = min(alpha_x(0), alpha_x(Nx - 1))
-    alpha_ymin = min(alpha_y(0), alpha_y(Ny - 1))
-
-    alpha_xmax = max(alpha_x(0), alpha_x(Nx - 1))
-    alpha_ymax = max(alpha_y(0), alpha_y(Ny - 1))
-
-    # for a ray, remove the 0, 1 in min max calcs
-    alpha_min = max(0, alpha_xmin, alpha_ymin)
-    alpha_max = min(1, alpha_xmax, alpha_ymax)
-
-    if alpha_min >= alpha_max:
-        raise ArithmeticError
-
-    phi_x = lambda a: (p1x + a * (p2x - p1x) - bx) / dx
-    phi_y = lambda a: (p1y + a * (p2y - p1y) - by) / dy
-
-    if p1x < p2x:
-        if alpha_min == alpha_xmin:
-            i_min = 1
-        else:
-            i_min = ceil(phi_x(alpha_min))
-
-        if alpha_max == alpha_xmax:
-            i_max = Nx - 1
-        else:
-            i_max = floor(phi_x(alpha_max))
-    else:
-        if alpha_min == alpha_xmin:
-            i_max = Nx - 2
-        else:
-            i_max = floor(phi_x(alpha_min))
-
-        if alpha_max == alpha_xmax:
-            i_min = 0
-        else:
-            i_min = ceil(phi_x(alpha_max))
-
-    if p1y < p2y:
-        if alpha_min == alpha_ymin:
-            j_min = 1
-        else:
-            j_min = ceil(phi_y(alpha_min))
-
-        if alpha_max == alpha_ymax:
-            j_max = Ny - 1
-        else:
-            j_max = floor(phi_y(alpha_max))
-    else:
-        if alpha_min == alpha_ymin:
-            j_max = Ny - 2
-        else:
-            j_max = floor(phi_y(alpha_min))
-
-        if alpha_max == alpha_ymax:
-            j_min = 0
-        else:
-            j_min = ceil(phi_y(alpha_max))
-
-    if p1x < p2x:
-        alpha_x_arr = [alpha_x(i) for i in range(i_min, i_max + 1)]
-    else:
-        alpha_x_arr = [alpha_x(i) for i in range(i_max, i_min - 1, -1)]
-
-    if p1y < p2y:
-        alpha_y_arr = [alpha_y(j) for j in range(j_min, j_max + 1)]
-    else:
-        alpha_y_arr = [alpha_y(j) for j in range(j_max, j_min - 1, -1)]
-
-    # for a ray, remove [alpha_max]
-    alpha_arr = sorted([alpha_min] + alpha_x_arr + alpha_y_arr + [alpha_max])
-    alpha_arr = [a for n, a in enumerate(alpha_arr) if a not in alpha_arr[:n]]
-
-    pixel_i = [floor(phi_x((alpha_arr[m] + alpha_arr[m-1]) / 2)) for m in range(1, len(alpha_arr))]
-    pixel_j = [floor(phi_y((alpha_arr[m] + alpha_arr[m-1]) / 2)) for m in range(1, len(alpha_arr))]
-
-    d_conv = sqrt((p2x - p2x)**2 + (p2y - p1y)**2)
-    lengths = [(alpha_arr[m] - alpha_arr[m-1]) * d_conv for m in range(1, len(alpha_arr))]
-    # integral = sum(pixels[pixel_i, pixel_j] * lengths)
-    return sum(lengths)
-
-
-def raytrace4(line, extent, pixels, debug=False, display_pixels=False):
+def raytrace(line, extent, pixels, debug=False, display_pixels=False):
     # Fixed issue, alphax[0] in Filip Jacob's paper means first alphax in siddon array, not alphax at zero.
-    # need to modify for a segment contained within pixel space, neccessary for fission calcs
 
     from math import ceil, floor
 
@@ -461,7 +278,7 @@ def test_outside(seed=8675309, nruns=5000, npixels=50, debug=False):
                     extent[3] + 1]
             true_value = outside_intersection_distance(line, extent)
 
-        d12 = raytrace4(line, extent, image, debug)
+        d12 = raytrace(line, extent, image, debug)
         difference = abs(d12 - true_value)
         if difference > 1e-12:
             # print(d12, distance(line), abs(d12 - distance(line)))
@@ -536,7 +353,7 @@ def test_innoutside(seed=8675309, nruns=5000, npixels=50, debug=False):
                                      extent[0], extent[1], extent[2], extent[2])
 
         true_value = distance([inside_pt[0], inside_pt[1], intersect[0], intersect[1]])
-        d12 = raytrace4(line, extent, image, debug)
+        d12 = raytrace(line, extent, image, debug)
         difference = abs(d12 - true_value)
         if difference > 1e-12:
             # print(d12, true_value, difference)
@@ -575,7 +392,7 @@ def test_inside(seed=8675309, nruns=5000, npixels=50, debug=False, display_pixel
                 random.uniform(extent[0], extent[1]),
                 random.uniform(extent[2], extent[3])]
 
-        d12 = raytrace4(line, extent, image, debug, display_pixels)
+        d12 = raytrace(line, extent, image, debug, display_pixels)
         true_value = distance(line)
         difference = abs(d12 - true_value)
         if difference > 1e-12:
@@ -600,7 +417,7 @@ def test_special_cases(nruns=100, npixels=50):
     draw_algorithm(extent, image)
 
     def test_line(line, extent, image, true_value):
-        d12 = raytrace4(line, extent, image)
+        d12 = raytrace(line, extent, image)
         difference = abs(d12 - true_value)
         if difference > 1e-12:
             print(d12, true_value, difference)
@@ -697,7 +514,7 @@ def test_object(nrays=100):
 
     draw_algorithm(extent, mu_image, draw_lines=False)
 
-    radians = np.array([0.2]) #np.linspace(0, np.pi, 100)
+    radians = np.array([0.]) #np.linspace(0, np.pi, 100)
     arc_radians = np.linspace(-np.pi / 8, np.pi / 8, nrays)
     start, end = geo.fan_beam_paths(60, arc_radians, radians, extent=False)
     for (s, e) in zip(start[:, 0], end[:, 0]):
@@ -709,17 +526,65 @@ def test_object(nrays=100):
     for (s, e) in zip(start[:, 0], end[:, 0]):
         line = [s[0], s[1], e[0], e[1]]
 
-        d12_values[d12_index] = raytrace4(line, extent, mu_image)
+        d12_values[d12_index] = raytrace(line, extent, mu_image)
         d12_index += 1
 
     plt.figure()
     plt.plot(arc_radians, d12_values)
+
+
+def test_speedup(npixels=50, nruns=10000, seed=8675309):
+    import cProfile
+    import random
+
+    random.seed(seed)
+
+    image = np.ones((npixels, npixels))
+    extent = [-5, 5, -5, 5]
+
+    lines = []
+
+    for i in range(nruns):
+        lines.append([random.uniform(extent[0], extent[1]),
+                      random.uniform(extent[2], extent[3]),
+                      random.uniform(extent[0], extent[1]),
+                      random.uniform(extent[2], extent[3])])
+
+    integral_python = 0
+    integral_cython = 0
+
+    def test_python_raytrace(lines, extent, image):
+        integral = 0
+        for line in lines:
+            integral += raytrace(line, extent, image)
+        return integral
+
+    def test_cython_raytrace(lines, extent, image):
+        integral = 0
+        for line in lines:
+            integral += raytrace_c(line, extent, image)
+        return integral
+
+    g = globals()
+    l = locals()
+    cProfile.runctx('test_python_raytrace(lines, extent, image)', globals=g, locals=l, sort='time')
+    # do cython and compare stats, also compare answers
+
+
+def generate_cython_html():
+    import subprocess
+    import os
+
+    subprocess.call(["cython"], shell=True)
 
 if __name__ == '__main__':
     # test_inside(nruns=1, debug=True, display_pixels=True)
     # test_outside(nruns=100)
     # test_innoutside(nruns=100)
     # test_special_cases()
-    test_object()
+    # test_object()
 
-    plt.show()
+    # plt.show()
+
+    # test_speedup()
+    generate_cython_html()
