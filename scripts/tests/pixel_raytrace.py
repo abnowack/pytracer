@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-# import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
-# import raytrace_c
-
+import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
+from raytrace_c import raytrace_fast
 
 def draw_algorithm(extent, pixels, draw_lines=True):
 
@@ -533,22 +532,22 @@ def test_object(nrays=100):
     plt.plot(arc_radians, d12_values)
 
 
-def test_speedup(npixels=50, nruns=10000, seed=8675309):
+def test_speedup(npixels=50, nruns=100, seed=8675309):
     import cProfile
     import random
 
     random.seed(seed)
 
-    image = np.ones((npixels, npixels))
+    image = np.ones((npixels, npixels), dtype=np.double)
     extent = [-5, 5, -5, 5]
 
-    lines = []
+    lines = np.zeros((nruns, 4), dtype=np.double)
 
     for i in range(nruns):
-        lines.append([random.uniform(extent[0], extent[1]),
-                      random.uniform(extent[2], extent[3]),
-                      random.uniform(extent[0], extent[1]),
-                      random.uniform(extent[2], extent[3])])
+        lines[i] = [random.uniform(extent[0], extent[1]),
+                    random.uniform(extent[2], extent[3]),
+                    random.uniform(extent[0], extent[1]),
+                    random.uniform(extent[2], extent[3])]
 
     integral_python = 0
     integral_cython = 0
@@ -560,22 +559,16 @@ def test_speedup(npixels=50, nruns=10000, seed=8675309):
         return integral
 
     def test_cython_raytrace(lines, extent, image):
-        integral = 0
+        integral = 0.
         for line in lines:
-            integral += raytrace_c(line, extent, image)
+            print(raytrace_fast(line, extent, image))
         return integral
 
     g = globals()
     l = locals()
-    cProfile.runctx('test_python_raytrace(lines, extent, image)', globals=g, locals=l, sort='time')
+    cProfile.runctx('test_cython_raytrace(lines, extent, image)', globals=g, locals=l, sort='time')
     # do cython and compare stats, also compare answers
 
-
-def generate_cython_html():
-    import subprocess
-    import os
-
-    subprocess.call(["cython"], shell=True)
 
 if __name__ == '__main__':
     # test_inside(nruns=1, debug=True, display_pixels=True)
@@ -586,5 +579,4 @@ if __name__ == '__main__':
 
     # plt.show()
 
-    # test_speedup()
-    generate_cython_html()
+    test_speedup()
