@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
 from raytrace_c import raytrace_fast
 
+
 def draw_algorithm(extent, pixels, draw_lines=True):
 
     plt.imshow(pixels.T, extent=extent, origin='lower')

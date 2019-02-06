@@ -7,7 +7,7 @@ from math import pi, floor
 import numpy as np
 from PIL import Image, ImageDraw
 
-from scripts.utils import Estimate
+from utils import Data
 
 
 def cartesian_to_image(x, y, extent, nx, ny):
@@ -16,7 +16,7 @@ def cartesian_to_image(x, y, extent, nx, ny):
     return i, j
 
 
-def shielded_true_image():
+def shielded_true_images():
     extent = [-12, 12, -8, 8]
     delta = 0.1
     nx = int((extent[1] - extent[0]) / delta)
@@ -47,7 +47,7 @@ def shielded_true_image():
     draw.rectangle([cartesian_to_image(5, -3, extent, nx, ny),
                     cartesian_to_image(7, -1, extent, nx, ny)], fill=poly)
     del draw
-    trans_arr = np.array(trans_im)
+    trans_arr = np.array(trans_im, dtype=np.double)
 
     fission_im = Image.new('F', (nx, ny), color=0)
     draw = ImageDraw.Draw(fission_im)
@@ -57,7 +57,7 @@ def shielded_true_image():
     draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, nx, ny),
                   cartesian_to_image(origin + inner_radius, inner_radius, extent, nx, ny)], fill=0)
     del draw
-    fission_arr = np.array(fission_im)
+    fission_arr = np.array(fission_im, dtype=np.double)
 
     p_im = Image.new('F', (nx, ny), color=0)
     draw = ImageDraw.Draw(p_im)
@@ -66,7 +66,7 @@ def shielded_true_image():
     draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, nx, ny),
                   cartesian_to_image(origin + inner_radius, inner_radius, extent, nx, ny)], fill=0)
     del draw
-    p_mask = np.array(p_im)
+    p_mask = np.array(p_im, dtype=np.double)
 
     xs = np.arange(extent[0], extent[1], delta) + delta / 0.5
     ys = np.arange(extent[2], extent[3], delta) + delta / 0.5
@@ -81,4 +81,4 @@ def shielded_true_image():
 
     p_arr[p_mask != 1] = 0
 
-    return Estimate(extent, trans_arr, fission_arr, p_arr)
+    return [Data(extent, trans_arr), Data(extent, fission_arr), Data(extent, p_arr)]
