@@ -11,7 +11,7 @@
 import numpy as np
 
 import assemblies
-import utils
+from utils import Data
 import raytrace
 
 
@@ -39,7 +39,7 @@ def fan_rays(radius, arc_angle, n_rays):
 
 def draw_rays(rays):
     for ray in rays:
-        plt.plot([ray[0], ray[2]], [ray[1], ray[3]])
+        plt.plot([ray[0], ray[2]], [ray[1], ray[3]], lw=1, color='blue')
 
 
 def sinogram(rays, image):
@@ -81,18 +81,44 @@ def rotation_sinogram(rays, image, angles):
     return result
 
 
+def raytrace_response(rays, image, pixel_i, pixel_j):
+    response_image = Data(image.extent, np.zeros(image.data.shape, dtype=np.double))
+    response_image.data[pixel_i, pixel_j] = 1
+
+    plt.imshow(response_image.data, extent=response_image.extent)
+
+    return sinogram(rays, response_image)
+
+
+def pixel_response_sinogram(rays, image, angles, pixel_i, pixel_j, rays_downsample=5):
+    response_image = Data(image.extent, np.zeros(image.data.shape, dtype=np.double))
+    response_image.data[pixel_i, pixel_j] = 1
+
+    response = rotation_sinogram(rays, response_image, angles)
+    response = response.reshape(response.shape[0], -1, rays_downsample).mean(axis=2)
+
+    return response
+
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
-    rays = parallel_rays(-15, 15, -12, 12, 100)
-    # rays = fan_rays(80, 40, 100)
+    # rays = parallel_rays(-15, 15, -12, 12, 100)
+    rays = fan_rays(80, 40, 100*10)
 
-    # measurement = rotation_sinogram(rays, mu_im, np.linspace(0., 180., 100))
-    # plt.imshow(measurement)
-
+    plt.figure()
     plt.imshow(mu_im.data, extent=mu_im.extent)
-    draw_rays(rays)
+
+    response = response_sinogram(rays, mu_im, np.linspace(0., 180., 200), pixel_i=60, pixel_j=30, rays_downsample=10)
+
+    plt.figure()
+    plt.imshow(response)
+
+    plt.figure()
+    plt.plot(response.sum(axis=1))
+
+    print(response.nbytes * mu_im.data.shape[0] * mu_im.data.shape[1])
 
     plt.show()
