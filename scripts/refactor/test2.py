@@ -20,6 +20,222 @@ import raytrace
 import algorithms
 
 
+def draw_algorithm(extent, pixels, draw_lines=True):
+
+    plt.imshow(pixels.T, extent=extent, origin='lower')
+
+    if draw_lines:
+        # vertical lines
+        for i in range(np.size(pixels, 0) + 1):
+            x = extent[0] + (extent[1] - extent[0]) / np.size(pixels, 0) * i
+            plt.plot([x, x], [extent[2], extent[3]], 'g')
+
+        # horizontal lines
+        for i in range(np.size(pixels, 1) + 1):
+            y = extent[2] + (extent[3] - extent[2]) / np.size(pixels, 1) * i
+            plt.plot([extent[0], extent[1]], [y, y], 'g')
+
+
+def draw_line(line, draw_option='c-'):
+    plt.plot([line[0], line[2]], [line[1], line[3]], draw_option, lw=1)
+
+
+def draw_alpha(line, alpha, color='red'):
+    point_x = line[0] + alpha * (line[2] - line[0])
+    point_y = line[1] + alpha * (line[3] - line[1])
+    print(point_x, point_y)
+
+    plt.scatter(point_x, point_y, color=color)
+
+
+def pyraytrace(line, extent, pixels, debug=False, display_pixels=False):
+    # Fixed issue, alphax[0] in Filip Jacob's paper means first alphax in siddon array, not alphax at zero.
+
+    from math import ceil, floor
+
+    p1x, p1y, p2x, p2y = line
+    bx, by, = extent[0], extent[2]
+    Nx, Ny = np.size(pixels, 0) + 1, np.size(pixels, 1) + 1
+    dx, dy = (extent[1] - extent[0]) / np.size(pixels, 0), (extent[3] - extent[2]) / np.size(pixels, 1)
+
+    p12x = lambda a_: p1x + a_ * (p2x - p1x)
+    p12y = lambda a_: p1y + a_ * (p2y - p1y)
+
+    alphax = lambda i_: ((bx + i_ * dx) - p1x) / (p2x - p1x)
+    alphay = lambda j_: ((by + j_ * dy) - p1y) / (p2y - p1y)
+
+    if p1x == p2x:
+        alphaxmin = 0
+        alphaxmax = 0
+    else:
+        alphaxmin = min(alphax(0), alphax(Nx - 1))
+        alphaxmax = max(alphax(0), alphax(Nx - 1))
+
+    if p1y == p2y:
+        alphaymin = 0
+        alphaymax = 0
+    else:
+        alphaymin = min(alphay(0), alphay(Ny - 1))
+        alphaymax = max(alphay(0), alphay(Ny - 1))
+
+
+    if p1x == p2x:
+        alphamin = max(0, alphaymin)
+        alphamax = min(1, alphaymax)
+    elif p1y == p2y:
+        alphamin = max(0, alphaxmin)
+        alphamax = min(1, alphaxmax)
+    else:
+        alphamin = max(0, alphaxmin, alphaymin)
+        alphamax = min(1, alphaxmax, alphaymax)
+
+    phix = lambda a_: (p12x(a_) - bx) / dx
+
+    if p1x < p2x:
+        if alphamin == alphaxmin:
+            imin = 1
+        else:
+            imin = ceil(phix(alphamin))
+
+        if alphamax == alphaxmax:
+            imax = Nx - 1
+        else:
+            imax = floor(phix(alphamax))
+
+        if p1x == p2x:
+            alphax_ = np.inf
+        else:
+            alphax_ = alphax(imin)
+
+    else:
+        if alphamin == alphaxmin:
+            imax = Nx - 2
+        else:
+            imax = floor(phix(alphamin))
+
+        if alphamax == alphaxmax:
+            imin = 0
+        else:
+            imin = ceil(phix(alphamax))
+
+        if p1x == p2x:
+            alphax_ = np.inf
+        else:
+            alphax_ = alphax(imax)
+
+    phiy = lambda a_: (p12y(a_) - by) / dy
+
+    if p1y < p2y:
+        if alphamin == alphaymin:
+            jmin = 1
+        else:
+            jmin = ceil(phiy(alphamin))
+
+        if alphamax == alphaymax:
+            jmax = Ny - 1
+        else:
+            jmax = floor(phiy(alphamax))
+
+        if p1y == p2y:
+            alphay_ =  np.inf
+        else:
+            alphay_ = alphay(jmin)
+
+    else:
+        if alphamin == alphaymin:
+            jmax = Ny - 2
+        else:
+            jmax = floor(phiy(alphamin))
+
+        if alphamax == alphaymax:
+            jmin = 0
+        else:
+            jmin = ceil(phiy(alphamax))
+
+        if p1y == p2y:
+            alphay_ = np.inf
+        else:
+            alphay_ = alphay(jmax)
+
+    Np = (imax - imin + 1) + (jmax - jmin + 1)
+
+    alphamid = (min(alphax_, alphay_) + alphamin) / 2
+
+    i = floor(phix(alphamid))
+    j = floor(phiy(alphamid))
+
+    if debug:
+        draw_alpha(line, alphamin, color='blue')
+        draw_alpha(line, alphamax, color='orange')
+
+    if p1x == p2x:
+        alphaxu = 0
+    else:
+        alphaxu = dx / abs(p2x - p1x)
+    if p1y == p2y:
+        alphayu = 0
+    else:
+        alphayu = dy / abs(p2y - p1y)
+
+    d12 = 0
+    dconv = ((p2x - p1x)**2 + (p2y - p1y)**2)**0.5
+    alphac = alphamin
+
+    if debug:
+        draw_alpha(line, alphac)
+
+    if p1x < p2x:
+        iu = 1
+    else:
+        iu = -1
+
+    if p1y < p2y:
+        ju = 1
+    else:
+        ju = -1
+
+    for k in range(Np):
+        if display_pixels:
+            pixels[i, j] = 1
+
+        if alphax_ < alphay_:
+            lij = (alphax_ - alphac) * dconv
+            d12 = d12 + lij * pixels[i, j]
+            i = i + iu
+            alphac = alphax_
+            alphax_ = alphax_ + alphaxu
+        else:
+            lij = (alphay_ - alphac) * dconv
+            d12 = d12 + lij * pixels[i, j]
+            j = j + ju
+            alphac = alphay_
+            alphay_ = alphay_ + alphayu
+
+        if debug:
+            draw_alpha(line, alphac)
+
+    # have to think about this for case of line in and outside of image
+    # alphamax == 1 means last point is in image
+    # alphamin == 0 means first point is in image
+    # print(alphamax, alphamin, alphaxmin, alphaxmax)
+    if alphamax == 1:
+        if display_pixels:
+            pixels[i, j] = 1
+
+        lij = (alphamax - alphac) * dconv
+        d12 = d12 + lij * pixels[i, j]
+
+        if debug:
+            draw_alpha(line, alphamax)
+
+    if debug:
+        draw_algorithm(extent, pixels)
+        draw_line(line)
+
+    return d12
+
+
+
 def parallel_rays(minx, maxx, miny, maxy, n_rays):
     rays = np.zeros((n_rays, 4), dtype=np.double)
     rays[:, 0] = minx
@@ -61,7 +277,7 @@ def draw_rays(rays):
 
 
 def sinogram(rays, image):
-    return raytrace.raytrace_bulk_siddon(rays, image.extent, image.data)
+    return raytrace.raytrace_bulk_fast(rays, image.extent, image.data)
 
 
 def rotate_points(points, angle, pivot=None, convert_to_radian=True):
@@ -170,7 +386,7 @@ def pixel_prob_detect(pixel_i, pixel_j, detector_points, extent, mu_image):
         detector_center_y = (detector_points[i, 1] + detector_points[i+1, 1]) / 2.
         line = np.array([pixel_x, pixel_y, detector_center_x, detector_center_y], dtype=np.double)
 
-        absorbance_out = raytrace.raytrace_siddon(line, extent, mu_image)
+        absorbance_out = raytrace.raytrace_fast(line, extent, mu_image)
         exit_prob = np.exp(-absorbance_out)
 
         solid_angle = solid_angle_line(pixel_x, pixel_y, detector_points[0, 0], detector_points[0, 1],
@@ -190,8 +406,7 @@ def pixel_fission_response(source_x, source_y, pixel_i, pixel_j, extent, k, dete
     pixel_y = pixel_j / (mu_image.shape[1]) * (extent[3] - extent[2]) + extent[2] + 0.5 * (extent[3] - extent[2]) / mu_image.shape[1]
 
     line = np.array([source_x, source_y, pixel_x, pixel_y], dtype=np.double)
-    print(line)
-    attenuation = raytrace.raytrace_siddon(line, extent, mu_image)
+    attenuation = raytrace.raytrace_fast(line, extent, mu_image)
 
     prob_in = np.exp(-attenuation)
     prob_density_fission = mu_f_image[pixel_i, pixel_j]
@@ -307,15 +522,23 @@ if __name__ == '__main__':
     # test line pixel index display is working
     """
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
-
+    mu_im.data[:, :] = 1
     plt.figure()
     plt.imshow(mu_im.data, extent=mu_im.extent)
 
-    # source_rays = fan_rays(80, 40, 25, midpoint=True)
-    line = np.array([-40., 0., -11.85, 7.13333333], dtype=np.double)
+    source_rays = fan_rays(80, 40, 25, midpoint=True)
+    # line = np.array([-40., 0., 11.85, 7.26666667], dtype=np.double)
+    line = np.array([4.0000000e+01, -4.8985872e-15, 6.7500000e+00, -3.8000000e+00], dtype=np.double)
+
+    ans = pyraytrace(line, mu_im.extent, mu_im.data, debug=True)
+    print(ans)
+    # line = source_rays[12]
+    pixels, distances = raytrace.raytrace_fast_store(line, mu_im.extent, mu_im.data)
+    ans = raytrace.raytrace_fast(line, mu_im.extent, mu_im.data)
+    print(ans)
+
     plt.plot([line[0], line[2]], [line[1], line[3]])
 
-    pixels, distances = raytrace.raytrace_siddon_store(line, mu_im.extent, mu_im.data)
     for i in range(pixels.shape[0]):
         pixel_i = pixels[i, 0]
         pixel_j = pixels[i, 1]
@@ -325,12 +548,13 @@ if __name__ == '__main__':
                   mu_image.shape[0]
         pixel_y = pixel_j / (mu_image.shape[1]) * (extent[3] - extent[2]) + extent[2] + 0.5 * (extent[3] - extent[2]) / \
                   mu_image.shape[1]
-        plt.scatter([pixel_x], [pixel_y])
+        # plt.scatter([pixel_x], [pixel_y])
 
+    print(distances.sum())
     plt.show()
-    """
-    # create fission sinogram
     # """
+    # create fission sinogram
+    """
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
     plt.figure()
@@ -344,7 +568,6 @@ if __name__ == '__main__':
     draw_rays(source_rays)
 
     angles = np.linspace(0., 180., 25)
-    angles = angles[::-1]
 
     mu_f_sinogram = fission_rotation_sinogram(source_rays, detector_points, angles, mu_im.extent,
                                               mu_im.data, mu_f_im.data, p_im.data, k=1)
@@ -353,4 +576,38 @@ if __name__ == '__main__':
     plt.imshow(mu_f_sinogram)
 
     plt.show()
+    """
+    # test joseph's method
     # """
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+    mu_im.data[:, :] = 1
+
+    source_rays = fan_rays(80, 40, 25, midpoint=True)
+    line = np.array([-40., 0., 11.85, 7.26666667], dtype=np.double)
+
+    n_points = 10
+    points_x = (mu_im.extent[1] - mu_im.extent[0]) * np.random.random_sample(n_points) + mu_im.extent[0]
+    points_y = (mu_im.extent[3] - mu_im.extent[2]) * np.random.random_sample(n_points) + mu_im.extent[2]
+
+    print(mu_im.extent)
+    print(raytrace.point_pixel_lookup(-11.8622, -7.855, mu_im.extent, mu_im.data.shape[1], mu_im.data.shape[0]))
+    print(mu_im.data.shape[0], mu_im.data.shape[1])
+
+    for px, py in zip(points_x, points_y):
+        i, j = raytrace.point_pixel_lookup(px, py, mu_im.extent, mu_im.data.shape[1], mu_im.data.shape[0])
+        print(i, j)
+        mu_im.data[j, i] = -1
+
+    mu_im.data[0, 0] = -1
+    mu_im.data[1, 1] = -1
+    mu_im.data[2, 2] = -1
+    mu_im.data[3, 3] = -1
+    mu_im.data[4, 4] = -1
+    mu_im.data[5, 5] = -1
+    mu_im.data[5, 6] = -1
+    mu_im.data[5, 7] = -1
+
+    plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
+    plt.scatter(points_x, points_y)
+
+    plt.show()
