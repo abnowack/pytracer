@@ -285,6 +285,14 @@ def raytrace_bilinear(line, extent, pixels, step_size=1e-3, debug=False):
     return integral * (line_distance / n_steps / 2)
 
 
+def raytrace_bulk_bilinear(lines, extent, pixels, step_size):
+    sinogram = np.zeros((lines.shape[0]), dtype=np.double)
+
+    for i in range(lines.shape[0]):
+        sinogram[i] = raytrace_bilinear(lines[i], extent, pixels, step_size)
+
+    return sinogram
+
 
 
 

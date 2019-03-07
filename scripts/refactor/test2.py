@@ -276,11 +276,8 @@ def fan_rays(radius, arc_angle, n_rays, midpoint=False):
     return rays
 
 
-
-
-
-def sinogram(rays, image):
-    return raytrace.raytrace_bulk_fast(rays, image.extent, image.data)
+def sinogram(rays, image, **options):
+    return raytrace.raytrace_bulk_bilinear(rays, image.extent, image.data, **options)
 
 
 def rotate_points(points, angle, pivot=None, convert_to_radian=True):
@@ -307,13 +304,13 @@ def rotate_rays(rays, angle, pivot=None):
     return rotated_rays
 
 
-def rotation_sinogram(rays, image, angles):
+def rotation_sinogram(rays, image, angles, **options):
 
     result = np.zeros((angles.shape[0], rays.shape[0]), dtype=np.double)
 
     for i, angle in enumerate(angles):
         rotated_rays = rotate_rays(rays, angle)
-        result[i] = sinogram(rotated_rays, image)
+        result[i] = sinogram(rotated_rays, image, **options)
 
     return result
 
@@ -585,36 +582,17 @@ if __name__ == '__main__':
 
     plt.figure()
     plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
-    print(mu_im.extent)
-    print(mu_im.data.shape[1], mu_im.data.shape[0])
 
     detector_points = arc_detector_points(-40, 0, 80, 40, 11)
     plt.scatter(detector_points[:, 0], detector_points[:, 1])
     plt.plot(detector_points[:, 0], detector_points[:, 1])
 
-    source_rays_ = fan_rays(80, 40, 500, midpoint=True)
-    source_rays = rotate_rays(source_rays_, 0)
-    draw_rays(source_rays, 'b')
+    source_rays = fan_rays(80, 40, 200, midpoint=True)
+    angles = np.linspace(0, 360, 200)
 
-    # ray_i = 30
-    # draw_line(source_rays[ray_i])
-    # ans = raytrace.raytrace_bilinear(source_rays[ray_i], mu_im.extent, mu_im.data, step_size=0.1, debug=True)
-
-    sino = np.zeros(source_rays.shape[0])
-    for i in range(sino.shape[0]):
-        sino[i] = raytrace.raytrace_bilinear(source_rays[i], mu_im.extent, mu_im.data, step_size=0.05)
+    sino = rotation_sinogram(source_rays, mu_im, angles, step_size=0.05)
 
     plt.figure()
-    plt.plot(sino)
-
-    # xs = np.linspace(-2.5, -1.5, 15)
-    # ys = np.linspace(2.5, 3.5, 15)
-    # zs = np.zeros((15, 15), dtype=np.double)
-    # for i in range(xs.shape[0]):
-    #     for j in range(ys.shape[0]):
-    #         zs[j, i] = raytrace.bilinear_interp(xs[i], ys[j], mu_im.data, mu_im.extent)
-
-    # plt.figure()
-    # plt.imshow(zs, extent=[-2, -1, 2, 3], origin='lower')
+    plt.imshow(sino, extent=[angles[0], angles[-1], -20, 20], aspect='auto', interpolation='nearest')
 
     plt.show()

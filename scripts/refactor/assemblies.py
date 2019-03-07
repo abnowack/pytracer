@@ -30,42 +30,47 @@ def shielded_true_images(supersample=4):
     outer_radius = 3.8
     inner_radius = 2.8
 
-    trans_im = Image.new('F', (nx, ny), color=0)
+    snx, sny = nx*supersample, ny*supersample
+
+    trans_im = Image.new('F', (nx*supersample, ny*supersample), color=0)
     draw = ImageDraw.Draw(trans_im)
-    draw.rectangle([cartesian_to_image(-10, -5, extent, nx, ny),
-                    cartesian_to_image(10, 5, extent, nx, ny)], fill=steel)
-    draw.rectangle([cartesian_to_image(-9, -4, extent, nx, ny),
-                    cartesian_to_image(9, 4, extent, nx, ny)], fill=0)
+    draw.rectangle([cartesian_to_image(-10, -5, extent, snx, sny),
+                    cartesian_to_image(10, 5, extent, snx, sny)], fill=steel)
+    draw.rectangle([cartesian_to_image(-9, -4, extent, snx, sny),
+                    cartesian_to_image(9, 4, extent, snx, sny)], fill=0)
 
-    draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, nx, ny),
-                  cartesian_to_image(origin + outer_radius, outer_radius, extent, nx, ny)], fill=u235)
-    draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, nx, ny),
-                  cartesian_to_image(origin + inner_radius, inner_radius, extent, nx, ny)], fill=0)
+    draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, snx, sny),
+                  cartesian_to_image(origin + outer_radius, outer_radius, extent, snx, sny)], fill=u235)
+    draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, snx, sny),
+                  cartesian_to_image(origin + inner_radius, inner_radius, extent, snx, sny)], fill=0)
 
-    draw.rectangle([cartesian_to_image(5, 3, extent, nx, ny),
-                    cartesian_to_image(7, 1, extent, nx, ny)], fill=steel)
-    draw.rectangle([cartesian_to_image(5, -3, extent, nx, ny),
-                    cartesian_to_image(7, -1, extent, nx, ny)], fill=poly)
+    draw.rectangle([cartesian_to_image(5, 3, extent, snx, sny),
+                    cartesian_to_image(7, 1, extent, snx, sny)], fill=steel)
+    draw.rectangle([cartesian_to_image(5, -3, extent, snx, sny),
+                    cartesian_to_image(7, -1, extent, snx, sny)], fill=poly)
     del draw
+    trans_im = trans_im.resize((nx, ny), Image.BILINEAR)
     trans_arr = np.array(trans_im, dtype=np.double)
 
-    fission_im = Image.new('F', (nx, ny), color=0)
+    fission_im = Image.new('F', (snx, sny), color=0)
     draw = ImageDraw.Draw(fission_im)
 
-    draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, nx, ny),
-                  cartesian_to_image(origin + outer_radius, outer_radius, extent, nx, ny)], fill=0.1)
-    draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, nx, ny),
-                  cartesian_to_image(origin + inner_radius, inner_radius, extent, nx, ny)], fill=0)
+    draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, snx, sny),
+                  cartesian_to_image(origin + outer_radius, outer_radius, extent, snx, sny)], fill=0.1)
+    draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, snx, sny),
+                  cartesian_to_image(origin + inner_radius, inner_radius, extent, snx, sny)], fill=0)
     del draw
+    fission_im = fission_im.resize((nx, ny), Image.BILINEAR)
     fission_arr = np.array(fission_im, dtype=np.double)
 
     p_im = Image.new('F', (nx, ny), color=0)
     draw = ImageDraw.Draw(p_im)
-    draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, nx, ny),
-                  cartesian_to_image(origin + outer_radius, outer_radius, extent, nx, ny)], fill=1.0)
-    draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, nx, ny),
-                  cartesian_to_image(origin + inner_radius, inner_radius, extent, nx, ny)], fill=0)
+    draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, snx, sny),
+                  cartesian_to_image(origin + outer_radius, outer_radius, extent, snx, sny)], fill=1.0)
+    draw.ellipse([cartesian_to_image(origin - inner_radius, -inner_radius, extent, snx, sny),
+                  cartesian_to_image(origin + inner_radius, inner_radius, extent, snx, sny)], fill=0)
     del draw
+    p_im = p_im.resize((nx, ny), Image.BILINEAR)
     p_mask = np.array(p_im, dtype=np.double)
 
     xs = np.arange(extent[0], extent[1], delta) + delta / 0.5
