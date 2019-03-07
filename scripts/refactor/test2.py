@@ -40,6 +40,11 @@ def draw_line(line, draw_option='c-'):
     plt.plot([line[0], line[2]], [line[1], line[3]], draw_option, lw=1)
 
 
+def draw_rays(rays, draw_option='b-'):
+    for ray in rays:
+        plt.plot([ray[0], ray[2]], [ray[1], ray[3]], draw_option, lw=1)
+
+
 def draw_alpha(line, alpha, color='red'):
     point_x = line[0] + alpha * (line[2] - line[0])
     point_y = line[1] + alpha * (line[3] - line[1])
@@ -271,9 +276,7 @@ def fan_rays(radius, arc_angle, n_rays, midpoint=False):
     return rays
 
 
-def draw_rays(rays):
-    for ray in rays:
-        plt.plot([ray[0], ray[2]], [ray[1], ray[3]], lw=1, color='blue')
+
 
 
 def sinogram(rays, image):
@@ -577,37 +580,41 @@ if __name__ == '__main__':
 
     plt.show()
     """
-    # test joseph's method
-    # """
+    # test bilinear
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
-    mu_im.data[:, :] = 1
 
-    source_rays = fan_rays(80, 40, 25, midpoint=True)
-    line = np.array([-40., 0., 11.85, 7.26666667], dtype=np.double)
-
-    n_points = 10
-    points_x = (mu_im.extent[1] - mu_im.extent[0]) * np.random.random_sample(n_points) + mu_im.extent[0]
-    points_y = (mu_im.extent[3] - mu_im.extent[2]) * np.random.random_sample(n_points) + mu_im.extent[2]
-
-    print(mu_im.extent)
-    print(raytrace.point_pixel_lookup(-11.8622, -7.855, mu_im.extent, mu_im.data.shape[1], mu_im.data.shape[0]))
-    print(mu_im.data.shape[0], mu_im.data.shape[1])
-
-    for px, py in zip(points_x, points_y):
-        i, j = raytrace.point_pixel_lookup(px, py, mu_im.extent, mu_im.data.shape[1], mu_im.data.shape[0])
-        print(i, j)
-        mu_im.data[j, i] = -1
-
-    mu_im.data[0, 0] = -1
-    mu_im.data[1, 1] = -1
-    mu_im.data[2, 2] = -1
-    mu_im.data[3, 3] = -1
-    mu_im.data[4, 4] = -1
-    mu_im.data[5, 5] = -1
-    mu_im.data[5, 6] = -1
-    mu_im.data[5, 7] = -1
-
+    plt.figure()
     plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
-    plt.scatter(points_x, points_y)
+    print(mu_im.extent)
+    print(mu_im.data.shape[1], mu_im.data.shape[0])
+
+    detector_points = arc_detector_points(-40, 0, 80, 40, 11)
+    plt.scatter(detector_points[:, 0], detector_points[:, 1])
+    plt.plot(detector_points[:, 0], detector_points[:, 1])
+
+    source_rays_ = fan_rays(80, 40, 500, midpoint=True)
+    source_rays = rotate_rays(source_rays_, 0)
+    draw_rays(source_rays, 'b')
+
+    # ray_i = 30
+    # draw_line(source_rays[ray_i])
+    # ans = raytrace.raytrace_bilinear(source_rays[ray_i], mu_im.extent, mu_im.data, step_size=0.1, debug=True)
+
+    sino = np.zeros(source_rays.shape[0])
+    for i in range(sino.shape[0]):
+        sino[i] = raytrace.raytrace_bilinear(source_rays[i], mu_im.extent, mu_im.data, step_size=0.05)
+
+    plt.figure()
+    plt.plot(sino)
+
+    # xs = np.linspace(-2.5, -1.5, 15)
+    # ys = np.linspace(2.5, 3.5, 15)
+    # zs = np.zeros((15, 15), dtype=np.double)
+    # for i in range(xs.shape[0]):
+    #     for j in range(ys.shape[0]):
+    #         zs[j, i] = raytrace.bilinear_interp(xs[i], ys[j], mu_im.data, mu_im.extent)
+
+    # plt.figure()
+    # plt.imshow(zs, extent=[-2, -1, 2, 3], origin='lower')
 
     plt.show()

@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 import numpy as np
 import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
 from raytrace_c import c_raytrace_siddon, c_raytrace_siddon_bulk, c_raytrace_siddon_store
@@ -24,6 +26,101 @@ def point_pixel_lookup(x, y, extent, Nx, Ny):
     j = np.floor((y - extent[2]) / (extent[3] - extent[2]) * Ny)
 
     return int(i), int(j)
+
+
+def line_line_intersection_parametric(x1, y1, x2, y2, x3, y3, x4, y4):
+    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if denom == 0:
+        return None, None
+
+    t = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)
+    t /= denom
+    u = - (x1 - x2) * (y1 - y3) + (y1 - y2) * (x1 - x3)
+    u /= denom
+
+    return t, u
+
+
+def line_box_intersections(line, extent):
+    ts = [2, 2]
+
+    # left side
+    tl, ul = line_line_intersection_parametric(line[0], line[1], line[2], line[3], extent[0], extent[2], extent[0],
+                                               extent[3])
+    # right side
+    tr, ur = line_line_intersection_parametric(line[0], line[1], line[2], line[3], extent[1], extent[2], extent[1],
+                                               extent[3])
+    # bottom side
+    tb, ub = line_line_intersection_parametric(line[0], line[1], line[2], line[3], extent[0], extent[2], extent[1],
+                                               extent[2])
+    # top side
+    tt, ut = line_line_intersection_parametric(line[0], line[1], line[2], line[3], extent[0], extent[3], extent[1],
+                                               extent[3])
+
+    n_intersections = 0
+
+    if ul is not None and 0 <= ul < 1 and 0 <= tl <= 1:
+        n_intersections += 1
+        ts[1] = ts[0]
+        ts[0] = tl
+    if ut is not None and 0 <= ut < 1 and 0 <= tt <= 1:
+        n_intersections += 1
+        ts[1] = ts[0]
+        ts[0] = tt
+    if ur is not None and 0 <= ur < 1 and 0 <= tr <= 1:
+        n_intersections += 1
+        ts[1] = ts[0]
+        ts[0] = tr
+    if ub is not None and 0 <= ub < 1 and 0 <= tb <= 1:
+        n_intersections += 1
+        ts[1] = ts[0]
+        ts[0] = tb
+
+    if ts[1] < ts[0]:
+        ts[0], ts[1] = ts[1], ts[0]
+
+    return n_intersections, ts
+
+
+def line_box_overlap_line(line, extent):
+    # test if first point in image
+    if extent[0] <= line[0] <= extent[1] and extent[2] <= line[1] <= extent[3]:
+        p1_inside = True
+    else:
+        p1_inside = False
+
+    # test if second point in image
+    if extent[0] <= line[2] <= extent[1] and extent[2] <= line[3] <= extent[3]:
+        p2_inside = True
+    else:
+        p2_inside = False
+
+    n_ts, ts = line_box_intersections(line, extent)
+
+    integration_line = [0, 0, 0, 0]
+
+    if n_ts == 0 and p1_inside and p2_inside:
+        integration_line = line
+    elif n_ts == 1 and p1_inside:
+        t1 = ts[0]
+        integration_line[0] = line[0]
+        integration_line[1] = line[1]
+        integration_line[2] = line[0] + t1 * (line[2] - line[0])
+        integration_line[3] = line[1] + t1 * (line[3] - line[1])
+    elif n_ts == 1 and p2_inside:
+        t1 = ts[0]
+        integration_line[0] = line[0] + t1 * (line[2] - line[0])
+        integration_line[1] = line[1] + t1 * (line[3] - line[1])
+        integration_line[2] = line[0]
+        integration_line[3] = line[1]
+    elif n_ts == 2 and not p1_inside and not p2_inside:
+        t1, t2 = ts[0], ts[1]
+        integration_line[0] = line[0] + t1 * (line[2] - line[0])
+        integration_line[1] = line[1] + t1 * (line[3] - line[1])
+        integration_line[2] = line[0] + t2 * (line[2] - line[0])
+        integration_line[3] = line[1] + t2 * (line[3] - line[1])
+
+    return integration_line
 
 
 def raytrace_siddon(line, extent, pixels):
@@ -100,28 +197,96 @@ def raytrace_joseph(line, extent, pixels, debug=False):
         plt.show()
 
 
-def raytrace_bilinear(line, extent, pixels, debug=False):
+def bilinear_interp(x, y, pixels, extent):
+    """
+    NOTE: ASSUMES PIXELS IS ZERO PADDED
+    a ---- b
+    | x    |
+    |      |
+    c ---- d
+    """
+    delx = (extent[1] - extent[0]) / pixels.shape[1]
+    dely = (extent[3] - extent[2]) / pixels.shape[0]
 
-    import matplotlib.pyplot as plt
+    if x < (extent[0] + delx / 2.) or x >= (extent[1] - delx / 2.):
+        return 0
+    if y < (extent[2] + dely / 2.) or y >= (extent[3] - dely / 2.):
+        return 0
+
+    # get index of lower left corner
+    i1 = int(np.floor((x - extent[0] - delx / 2.) / (extent[1] - extent[0] - delx) * (pixels.shape[1] - 1)))
+    j1 = int(np.floor((y - extent[2] - dely / 2.) / (extent[3] - extent[2] - dely) * (pixels.shape[0] - 1)))
+    i2 = i1 + 1
+    j2 = j1 + 1
+
+    x1 = extent[0] + delx / 2. + i1 * delx
+    y1 = extent[2] + dely / 2. + j1 * dely
+
+    t = (x - x1) / delx
+    u = (y - y1) / dely
+
+    interp = (1 - t) * (1 - u) * pixels[j1, i1] + \
+        t * (1 - u) * pixels[j1, i2] + \
+        t * u * pixels[j2, i2] + \
+        (1 - t) * u * pixels[j2, i1]
+
+    return interp
+
+
+def raytrace_bilinear(line, extent, pixels, step_size=1e-3, debug=False):
+    # NOTE: pixels MUST be zero padded!
+    # will have innacurate results otherwise
+
+    reduced_line = line_box_overlap_line(line, extent)
     if debug:
-        plt.figure()
-        plt.imshow(pixels, extent=extent)
+        print(line, reduced_line)
+        plt.plot([reduced_line[0], reduced_line[2]], [reduced_line[1], reduced_line[3]])
 
-    x0, y0 = line[0], line[1]
-    x1, y1 = line[2], line[3]
+    line_distance = np.sqrt((reduced_line[2] - reduced_line[0])**2 + (reduced_line[3] - reduced_line[1])**2)
 
-    Nx = pixels.shape[0]
-    Ny = pixels.shape[1]
-    bx = (x1 - x0) / Nx
-    by = (y1 - y0) / Ny
+    if line_distance == 0:
+        return 0.
 
-    def bilinear_interpolation(x, y, extent, pixels):
-        Nx = pixels.shape[0]
-        Ny = pixels.shape[1]
+    bli_start = bilinear_interp(reduced_line[0], reduced_line[1], pixels, extent)
+    bli_end = bilinear_interp(reduced_line[2], reduced_line[3], pixels, extent)
 
-        # get pixel of (x, y)
-        pi = np.floor((x - extent[0]) / (extent[1] - extent[0]) * Nx)
-        pj = np.floor((y - extent[2]) / (extent[3] - extent[2]) * Ny)
+    if line_distance < 2 * step_size:
+        return (bli_start + bli_end) / 2 * line_distance
+
+    integral = 0
+    n_steps = int(np.floor(line_distance / step_size))
+    step = line_distance / n_steps
+
+    bli_prev = bli_start
+    bli_next = 0.
+
+    if debug:
+        print(reduced_line)
+        plt.scatter(reduced_line[0], reduced_line[1], color='r')
+
+    for i in range(n_steps - 1):
+        t = (i+1) / n_steps
+        pos_x = reduced_line[0] + t * (reduced_line[2] - reduced_line[0])
+        pos_y = reduced_line[1] + t * (reduced_line[3] - reduced_line[1])
+
+        # if debug:
+        #     print(t)
+        #     plt.scatter(pos_x, pos_y, color='r')
+
+        bli_next = bilinear_interp(pos_x, pos_y, pixels, extent)
+        integral += (bli_prev + bli_next)
+        bli_prev = bli_next
+
+    if debug:
+        plt.scatter(reduced_line[2], reduced_line[3], color='r')
+
+    integral += (bli_prev + bli_end)
+
+    return integral * (line_distance / n_steps / 2)
+
+
+
+
 
 
 
