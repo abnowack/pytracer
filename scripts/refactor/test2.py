@@ -45,202 +45,6 @@ def draw_rays(rays, draw_option='b-'):
         plt.plot([ray[0], ray[2]], [ray[1], ray[3]], draw_option, lw=1)
 
 
-def draw_alpha(line, alpha, color='red'):
-    point_x = line[0] + alpha * (line[2] - line[0])
-    point_y = line[1] + alpha * (line[3] - line[1])
-    print(point_x, point_y)
-
-    plt.scatter(point_x, point_y, color=color)
-
-
-def pyraytrace(line, extent, pixels, debug=False, display_pixels=False):
-    # Fixed issue, alphax[0] in Filip Jacob's paper means first alphax in siddon array, not alphax at zero.
-
-    from math import ceil, floor
-
-    p1x, p1y, p2x, p2y = line
-    bx, by, = extent[0], extent[2]
-    Nx, Ny = np.size(pixels, 0) + 1, np.size(pixels, 1) + 1
-    dx, dy = (extent[1] - extent[0]) / np.size(pixels, 0), (extent[3] - extent[2]) / np.size(pixels, 1)
-
-    p12x = lambda a_: p1x + a_ * (p2x - p1x)
-    p12y = lambda a_: p1y + a_ * (p2y - p1y)
-
-    alphax = lambda i_: ((bx + i_ * dx) - p1x) / (p2x - p1x)
-    alphay = lambda j_: ((by + j_ * dy) - p1y) / (p2y - p1y)
-
-    if p1x == p2x:
-        alphaxmin = 0
-        alphaxmax = 0
-    else:
-        alphaxmin = min(alphax(0), alphax(Nx - 1))
-        alphaxmax = max(alphax(0), alphax(Nx - 1))
-
-    if p1y == p2y:
-        alphaymin = 0
-        alphaymax = 0
-    else:
-        alphaymin = min(alphay(0), alphay(Ny - 1))
-        alphaymax = max(alphay(0), alphay(Ny - 1))
-
-
-    if p1x == p2x:
-        alphamin = max(0, alphaymin)
-        alphamax = min(1, alphaymax)
-    elif p1y == p2y:
-        alphamin = max(0, alphaxmin)
-        alphamax = min(1, alphaxmax)
-    else:
-        alphamin = max(0, alphaxmin, alphaymin)
-        alphamax = min(1, alphaxmax, alphaymax)
-
-    phix = lambda a_: (p12x(a_) - bx) / dx
-
-    if p1x < p2x:
-        if alphamin == alphaxmin:
-            imin = 1
-        else:
-            imin = ceil(phix(alphamin))
-
-        if alphamax == alphaxmax:
-            imax = Nx - 1
-        else:
-            imax = floor(phix(alphamax))
-
-        if p1x == p2x:
-            alphax_ = np.inf
-        else:
-            alphax_ = alphax(imin)
-
-    else:
-        if alphamin == alphaxmin:
-            imax = Nx - 2
-        else:
-            imax = floor(phix(alphamin))
-
-        if alphamax == alphaxmax:
-            imin = 0
-        else:
-            imin = ceil(phix(alphamax))
-
-        if p1x == p2x:
-            alphax_ = np.inf
-        else:
-            alphax_ = alphax(imax)
-
-    phiy = lambda a_: (p12y(a_) - by) / dy
-
-    if p1y < p2y:
-        if alphamin == alphaymin:
-            jmin = 1
-        else:
-            jmin = ceil(phiy(alphamin))
-
-        if alphamax == alphaymax:
-            jmax = Ny - 1
-        else:
-            jmax = floor(phiy(alphamax))
-
-        if p1y == p2y:
-            alphay_ =  np.inf
-        else:
-            alphay_ = alphay(jmin)
-
-    else:
-        if alphamin == alphaymin:
-            jmax = Ny - 2
-        else:
-            jmax = floor(phiy(alphamin))
-
-        if alphamax == alphaymax:
-            jmin = 0
-        else:
-            jmin = ceil(phiy(alphamax))
-
-        if p1y == p2y:
-            alphay_ = np.inf
-        else:
-            alphay_ = alphay(jmax)
-
-    Np = (imax - imin + 1) + (jmax - jmin + 1)
-
-    alphamid = (min(alphax_, alphay_) + alphamin) / 2
-
-    i = floor(phix(alphamid))
-    j = floor(phiy(alphamid))
-
-    if debug:
-        draw_alpha(line, alphamin, color='blue')
-        draw_alpha(line, alphamax, color='orange')
-
-    if p1x == p2x:
-        alphaxu = 0
-    else:
-        alphaxu = dx / abs(p2x - p1x)
-    if p1y == p2y:
-        alphayu = 0
-    else:
-        alphayu = dy / abs(p2y - p1y)
-
-    d12 = 0
-    dconv = ((p2x - p1x)**2 + (p2y - p1y)**2)**0.5
-    alphac = alphamin
-
-    if debug:
-        draw_alpha(line, alphac)
-
-    if p1x < p2x:
-        iu = 1
-    else:
-        iu = -1
-
-    if p1y < p2y:
-        ju = 1
-    else:
-        ju = -1
-
-    for k in range(Np):
-        if display_pixels:
-            pixels[i, j] = 1
-
-        if alphax_ < alphay_:
-            lij = (alphax_ - alphac) * dconv
-            d12 = d12 + lij * pixels[i, j]
-            i = i + iu
-            alphac = alphax_
-            alphax_ = alphax_ + alphaxu
-        else:
-            lij = (alphay_ - alphac) * dconv
-            d12 = d12 + lij * pixels[i, j]
-            j = j + ju
-            alphac = alphay_
-            alphay_ = alphay_ + alphayu
-
-        if debug:
-            draw_alpha(line, alphac)
-
-    # have to think about this for case of line in and outside of image
-    # alphamax == 1 means last point is in image
-    # alphamin == 0 means first point is in image
-    # print(alphamax, alphamin, alphaxmin, alphaxmax)
-    if alphamax == 1:
-        if display_pixels:
-            pixels[i, j] = 1
-
-        lij = (alphamax - alphac) * dconv
-        d12 = d12 + lij * pixels[i, j]
-
-        if debug:
-            draw_alpha(line, alphamax)
-
-    if debug:
-        draw_algorithm(extent, pixels)
-        draw_line(line)
-
-    return d12
-
-
-
 def parallel_rays(minx, maxx, miny, maxy, n_rays):
     rays = np.zeros((n_rays, 4), dtype=np.double)
     rays[:, 0] = minx
@@ -362,6 +166,7 @@ def binom(n, k):
         n -= 1
 
     return ans
+
 
 def pixel_prob_detect(pixel_i, pixel_j, detector_points, extent, mu_image):
     def solid_angle_line(sx, sy, x1, y1, x2, y2):
@@ -578,6 +383,8 @@ if __name__ == '__main__':
     plt.show()
     """
     # test bilinear
+    import cProfile
+
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
     plt.figure()
@@ -588,11 +395,17 @@ if __name__ == '__main__':
     plt.plot(detector_points[:, 0], detector_points[:, 1])
 
     source_rays = fan_rays(80, 40, 200, midpoint=True)
+    # draw_rays(source_rays)
     angles = np.linspace(0, 360, 200)
 
+    pr = cProfile.Profile()
+    pr.enable()
     sino = rotation_sinogram(source_rays, mu_im, angles, step_size=0.05)
+    pr.disable()
+    pr.print_stats(sort='time')
 
     plt.figure()
+    # plt.plot(sino)
     plt.imshow(sino, extent=[angles[0], angles[-1], -20, 20], aspect='auto', interpolation='nearest')
 
     plt.show()
