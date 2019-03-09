@@ -52,11 +52,19 @@ def estimate_p(data, estimate):
     pass
 
 
-def update_estimate(data, estimate):
+def update_estimate(data, estimate, n_iterations):
 
-    estimate['mu'] = estimate_mu(data, estimate)
-    estimate['mu_f'] = estimate_mu_f(data, estimate)
-    estimate['p'] = estimate_p(data, estimate)
+    prev_estimate = Estimate(extent=estimate.extent, mu=np.copy(estimate.mu), mu_f=np.copy(estimate.mu_f),
+                             p=np.copy(estimate.p))
+
+    for n in range(n_iterations):
+        estimate['mu'] = estimate_mu(data, prev_estimate)
+        estimate['mu_f'] = estimate_mu_f(data, prev_estimate)
+        estimate['p'] = estimate_p(data, prev_estimate)
+
+        prev_estimate.mu[:] = estimate.mu
+        prev_estimate.mu[:] = estimate.mu_f
+        prev_estimate.mu[:] = estimate.p
 
     return estimate
 
