@@ -80,8 +80,8 @@ def fan_rays(radius, arc_angle, n_rays, midpoint=False):
     return rays
 
 
-def sinogram(rays, image, **options):
-    return raytrace.raytrace_bulk_bilinear(rays, image.extent, image.data, **options)
+def sinogram(rays, image, extent, **options):
+    return raytrace.raytrace_bulk_bilinear(rays, extent, image, **options)
 
 
 def rotate_points(points, angle, pivot=None, convert_to_radian=True):
@@ -108,13 +108,13 @@ def rotate_rays(rays, angle, pivot=None):
     return rotated_rays
 
 
-def rotation_sinogram(rays, image, angles, **options):
+def rotation_sinogram(rays, image, extent, angles, **options):
 
     result = np.zeros((angles.shape[0], rays.shape[0]), dtype=np.double)
 
     for i, angle in enumerate(angles):
         rotated_rays = rotate_rays(rays, angle)
-        result[i] = sinogram(rotated_rays, image, **options)
+        result[i] = sinogram(rotated_rays, image, extent, **options)
 
     return result
 
@@ -145,6 +145,23 @@ def transmission_response_sinogram(rays, image, angles, rays_downsample=5):
         response_image.data[ix, iy] = 0
 
     return response
+
+
+def transmission_project(image, extent, angles, radius, detector_arcangle, n_rays=200, step_size=1e-3):
+    projection_rays = fan_rays(radius*2, detector_arcangle, n_rays, midpoint=True)
+
+    return rotation_sinogram(projection_rays, image, extent, angles, step_size=step_size)
+
+
+def transmission_backproject(sino, image_shape, extent, angles, radius, detector_arcangle, n_rays=200, step_size=1e-3):
+    projection_rays = fan_rays(radius * 2, detector_arcangle, n_rays, midpoint=True)
+
+    backprojection = np.zeros(image_shape, dtype=np.double)
+    for i in range(angles.shape[0]):
+        backproject_rays = rotate_rays(projection_rays, angles[i])
+        raytrace.raytrace_backproject_bulk(backproject_rays, sino[i], mu_im.extent, backprojection, step_size=0.05)
+
+    return backprojection
 
 
 # fission stuff
@@ -383,6 +400,7 @@ if __name__ == '__main__':
     plt.show()
     """
     # test bilinear
+    """
     import cProfile
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
@@ -407,5 +425,29 @@ if __name__ == '__main__':
     plt.figure()
     # plt.plot(sino)
     plt.imshow(sino, extent=[angles[0], angles[-1], -20, 20], aspect='auto', interpolation='nearest')
+
+    plt.show()
+    """
+    # test backproject
+    radius = 40
+    detector_arc_angle = 40
+    n_rays=200
+    step_size = 0.05
+    angles = np.linspace(0, 360, 200)
+
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+
+    plt.figure()
+    plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
+
+    sino = transmission_project(mu_im.data, mu_im.extent, angles, radius, detector_arc_angle, n_rays, step_size=step_size)
+
+    plt.figure()
+    plt.imshow(sino, extent=[-detector_arc_angle/2, detector_arc_angle/2, angles[0], angles[-1]], aspect='auto', interpolation='nearest')
+
+    backprojection = transmission_backproject(sino, mu_im.data.shape, mu_im.extent, angles, radius, detector_arc_angle, n_rays, step_size=1e-3)
+
+    plt.figure()
+    plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
 
     plt.show()

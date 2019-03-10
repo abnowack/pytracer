@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
-from raytrace_c import c_raytrace_bilinear, c_raytrace_bulk_bilinear
+from raytrace_c import c_raytrace_bilinear, c_raytrace_bulk_bilinear, c_raytrace_backproject
 
 _raytrace_cache = np.zeros((500000), dtype=np.double)
 _pixel_cache = np.zeros((10000, 2), dtype=np.int)
@@ -35,3 +35,11 @@ def raytrace_bulk_bilinear(lines, extent, pixels, step_size):
 
     return sinogram
 
+
+def raytrace_backproject(line, value, extent, pixels, step_size=1e-3):
+    c_raytrace_backproject(line, value, extent[0], extent[1], extent[2], extent[3], pixels, step_size)
+
+
+def raytrace_backproject_bulk(lines, values, extent, pixels, step_size=1e-3):
+    for i in range(lines.shape[0]):
+        c_raytrace_backproject(lines[i], values[i], extent[0], extent[1], extent[2], extent[3], pixels, step_size)
