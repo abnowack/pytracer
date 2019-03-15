@@ -1,6 +1,26 @@
 cimport cython
 
-from libc.math cimport floor, ceil, sqrt
+from libc.math cimport floor, ceil, sqrt, pow, acos, fabs, M_PI, exp
+
+
+cpdef unsigned int binom(unsigned int n, unsigned int k):
+    cdef:
+        unsigned int ans=1
+        unsigned int j=1
+
+    if k > n - k:
+        k = n - k
+
+    for j in range(1, k+1):
+        if n % j == 0:
+            ans *= n / j
+        elif ans % j == 0:
+            ans = ans / j * n
+        else:
+            ans = (ans * n) / j
+        n -= 1
+
+    return ans
 
 
 cpdef c_line_box_overlap_line(double[::1] line, double ex1, double ex2, double ey1, double ey2):
@@ -204,7 +224,7 @@ cpdef double c_raytrace_bulk_bilinear(double[:, ::1] lines, double ex1, double e
 
 
 cpdef c_raytrace_backproject_bilinear(double x, double y, double value, double[:, ::1] pixels, double ex1,
-                                             double ex2, double ey1, double ey2):
+                                      double ex2, double ey1, double ey2):
     """
     NOTE: ASSUMES PIXELS IS ZERO PADDED
     a ---- b
@@ -288,3 +308,62 @@ cpdef c_raytrace_backproject(double[::1] line, double value, double ex1, double 
         c_raytrace_backproject_bilinear(pos_x, pos_y, value / (n_steps + 1), pixels, ex1, ex2, ey1, ey2)
 
     return
+
+
+# Fission stuff
+cpdef double solid_angle(double lx1, double ly1, double lx2, double ly2, double px, double py):
+    cdef:
+        double a, b, c, num, denom, angle
+
+    a = (lx1 - px) * (lx1 - px) + (ly1 - py) * (ly1 - py)
+    b = (lx2 - px) * (lx2 - px) + (ly2 - py) * (ly2 - py)
+    c = (lx1 - lx2) * (lx1 - lx2) + (ly1 - ly2) * (ly1 - ly2)
+
+    num = a + b - c
+    denom = 2 * sqrt(a) * sqrt(b)
+    angle = acos(fabs(num / denom))
+    if angle > M_PI / 2.:
+        angle = M_PI - angle
+
+    return angle
+
+
+cpdef double exit_probability(double p, unsigned int k, double[::1] nu_dist, double detector_prob):
+    cdef:
+        double exit_prob = 0.
+        unsigned int i
+
+    for i in range(nu_dist.shape[0]):
+        exit_prob += binom(i, k) * nu_dist[i] * pow(detector_prob, k) * pow(1. - detector_prob, i - k)
+
+    return exit_prob
+
+
+cpdef detect_probability(double[::1] point, double[:, ::1] image, double ex1, double ex2, double ey1, double ey2,
+                         double[:, ::1] detector_points, double step_size=1e-3):
+
+    cdef:
+        double detector_prob = 0
+        unsigned int i
+        double detector_center_x, detector_center_y
+        double exit_absorbance
+        double exit_prob
+        double solid_angle_prob
+
+    for i in range(detector_points.shape[0]-1):
+
+        detector_center_x = (detector_points[i, 0] + detector_points[i+1, 0]) / 2.
+        detector_center_y = (detector_points[i, 1] + detector_points[i+1, 1]) / 2.
+
+        exit_ray = [point[0], point[1], detector_center_x, detector_center_y]
+
+        exit_absorbance = c_raytrace_bilinear(exit_ray, ex1, ex2, ey1, ey2, image, step_size)
+        exit_prob = exp(-exit_absorbance)
+
+        solid_angle_prob = solid_angle(detector_points[i, 0], detector_points[i, 1],
+                                       detector_points[i+1, 0], detector_points[i+1, 1],
+                                       point[0], point[1])
+
+        detector_prob += exit_prob * solid_angle_prob
+
+    return detector_prob

@@ -18,70 +18,35 @@ import assemblies
 from utils import Data
 import raytrace
 import algorithms
+from math import sqrt, acos, fabs, exp, floor
+from raytrace_c import c_bilinear_interpolation, detect_probability
 
 
-def draw_algorithm(extent, pixels, draw_lines=True):
+nu_u235_induced = \
+    np.array([0.0237898, 0.1555525, 0.3216515, 0.3150433, 0.1444732, 0.0356013, 0.0034339, 0.0004546])
 
-    plt.imshow(pixels.T, extent=extent, origin='lower')
+nu_dist = nu_u235_induced
 
-    if draw_lines:
+
+def draw_algorithm(extent, image, draw_rays=True):
+
+    plt.imshow(image.T, extent=extent, origin='lower')
+
+    if draw_rays:
         # vertical lines
-        for i in range(np.size(pixels, 0) + 1):
-            x = extent[0] + (extent[1] - extent[0]) / np.size(pixels, 0) * i
+        for i in range(np.size(image, 0) + 1):
+            x = extent[0] + (extent[1] - extent[0]) / np.size(image, 0) * i
             plt.plot([x, x], [extent[2], extent[3]], 'g')
 
         # horizontal lines
-        for i in range(np.size(pixels, 1) + 1):
-            y = extent[2] + (extent[3] - extent[2]) / np.size(pixels, 1) * i
+        for i in range(np.size(image, 1) + 1):
+            y = extent[2] + (extent[3] - extent[2]) / np.size(image, 1) * i
             plt.plot([extent[0], extent[1]], [y, y], 'g')
-
-
-def draw_line(line, draw_option='c-'):
-    plt.plot([line[0], line[2]], [line[1], line[3]], draw_option, lw=1)
 
 
 def draw_rays(rays, draw_option='b-'):
     for ray in rays:
         plt.plot([ray[0], ray[2]], [ray[1], ray[3]], draw_option, lw=1)
-
-
-def parallel_rays(minx, maxx, miny, maxy, n_rays):
-    rays = np.zeros((n_rays, 4), dtype=np.double)
-    rays[:, 0] = minx
-    rays[:, 2] = maxx
-    rays[:, 1] = np.linspace(miny, maxy, n_rays)
-    rays[:, 3] = rays[:, 1]
-
-    return rays
-
-
-def arc_detector_points(center_x, center_y, radius, arc_angle, n_points, midpoint=False):
-
-    points = np.zeros((n_points, 2), dtype=np.double)
-    arc_radian = arc_angle / 180. * np.pi
-
-    if midpoint:
-        radian_edges = np.linspace(arc_radian/2, -arc_radian/2, n_points+1)
-        radians = (radian_edges[1:] + radian_edges[:-1]) / 2.
-    else:
-        radians = np.linspace(arc_radian/2, -arc_radian/2, n_points)
-
-    points[:, 0] = center_x + np.cos(radians) * radius
-    points[:, 1] = center_y + np.sin(radians) * radius
-
-    return points
-
-
-def fan_rays(radius, arc_angle, n_rays, midpoint=False):
-    rays = np.zeros((n_rays, 4), dtype=np.double)
-    rays[:, (0, 1)] = np.array([-radius / 2, 0])
-    rays[:, (2, 3)] = arc_detector_points(-radius / 2, 0, radius, arc_angle, n_rays, midpoint)
-
-    return rays
-
-
-def sinogram(rays, image, extent, **options):
-    return raytrace.raytrace_bulk_bilinear(rays, extent, image, **options)
 
 
 def rotate_points(points, angle, pivot=None, convert_to_radian=True):
@@ -108,170 +73,167 @@ def rotate_rays(rays, angle, pivot=None):
     return rotated_rays
 
 
-def rotation_sinogram(rays, image, extent, angles, **options):
+def arc_detector_points(center_x, center_y, radius, arc_angle, n_points, midpoint=False):
 
-    result = np.zeros((angles.shape[0], rays.shape[0]), dtype=np.double)
+    points = np.zeros((n_points, 2), dtype=np.double)
+    arc_radian = arc_angle / 180. * np.pi
 
-    for i, angle in enumerate(angles):
-        rotated_rays = rotate_rays(rays, angle)
-        result[i] = sinogram(rotated_rays, image, extent, **options)
+    if midpoint:
+        radian_edges = np.linspace(arc_radian/2, -arc_radian/2, n_points+1)
+        radians = (radian_edges[1:] + radian_edges[:-1]) / 2.
+    else:
+        radians = np.linspace(arc_radian/2, -arc_radian/2, n_points)
 
-    return result
+    points[:, 0] = center_x + np.cos(radians) * radius
+    points[:, 1] = center_y + np.sin(radians) * radius
 
-
-def transmission_pixel_sinogram(rays, image, angles, pixel_i, pixel_j, rays_downsample=5, response_image=None):
-    if response_image is None:
-        response_image = Data(image.extent, np.zeros(image.data.shape, dtype=np.double))
-        response_image.data[pixel_i, pixel_j] = 1
-
-    response = rotation_sinogram(rays, response_image, angles)
-    response = response.reshape(response.shape[0], -1, rays_downsample).mean(axis=2)
-
-    return response
+    return points
 
 
-def transmission_response_sinogram(rays, image, angles, rays_downsample=5):
-    nx, ny = image.data.shape
-    response = np.zeros((nx * ny, angles.shape[0], int(rays.shape[0] / rays_downsample)), dtype=np.double)
-
-    response_image = Data(image.extent, np.zeros(image.data.shape, dtype=np.double))
-
-    for i in range(nx * ny):
-        ix = i % image.data.shape[0]
-        iy = i // image.data.shape[0]
-        print(i, nx * ny, ix, iy)
-        response_image.data[ix, iy] = 1
-        response[i] = transmission_pixel_sinogram(rays, image, angles, ix, iy, rays_downsample, response_image)
-        response_image.data[ix, iy] = 0
-
-    return response
+# def solid_angle_line(line, point):
+#
+#     a = (line[0] - point[0]) * (line[0] - point[0]) + (line[1] - point[1]) * (line[1] - point[1])
+#     b = (line[2] - point[0]) * (line[2] - point[0]) + (line[3] - point[1]) * (line[3] - point[1])
+#     c = (line[0] - line[2]) * (line[0] - line[2]) + (line[1] - line[3]) * (line[1] - line[3])
+#
+#     num = a + b - c
+#     denom = 2 * sqrt(a) * sqrt(b)
+#     angle = acos(fabs(num / denom))
+#     if angle > np.pi / 2.:
+#         angle = np.pi - angle
+#
+#     return angle
 
 
-def transmission_project(image, extent, angles, radius, detector_arcangle, n_rays=200, step_size=1e-3):
-    projection_rays = fan_rays(radius*2, detector_arcangle, n_rays, midpoint=True)
+def parallel_rays(minx, maxx, miny, maxy, n_rays):
+    rays = np.zeros((n_rays, 4), dtype=np.double)
+    rays[:, 0] = minx
+    rays[:, 2] = maxx
+    rays[:, 1] = np.linspace(miny, maxy, n_rays)
+    rays[:, 3] = rays[:, 1]
 
-    return rotation_sinogram(projection_rays, image, extent, angles, step_size=step_size)
+    return rays
 
 
-def transmission_backproject(sino, image_shape, extent, angles, radius, detector_arcangle, n_rays=200, step_size=1e-3):
-    projection_rays = fan_rays(radius * 2, detector_arcangle, n_rays, midpoint=True)
+def fan_rays(radius, arc_angle, n_rays, angles=None, midpoint=False):
+    if angles is None:
+        rays = np.zeros((n_rays, 4), dtype=np.double)
+        rays[:, (0, 1)] = np.array([-radius, 0])
+        rays[:, (2, 3)] = arc_detector_points(-radius, 0, radius * 2, arc_angle, n_rays, midpoint)
 
-    backprojection = np.zeros(image_shape, dtype=np.double)
+        return rays
+
+    rays = np.zeros((angles.shape[0], n_rays, 4), dtype=np.double)
+    rays[:, :, (0, 1)] = np.array([-radius, 0])
+    rays[:, :, (2, 3)] = arc_detector_points(-radius, 0, radius * 2, arc_angle, n_rays, midpoint)
     for i in range(angles.shape[0]):
-        backproject_rays = rotate_rays(projection_rays, angles[i])
-        raytrace.raytrace_backproject_bulk(backproject_rays, sino[i], mu_im.extent, backprojection, step_size=0.05)
+        rays[i, :, :2] = rotate_points(rays[i, :, :2], angles[i])
+        rays[i, :, 2:] = rotate_points(rays[i, :, 2:], angles[i])
 
-    return backprojection
-
-
-# fission stuff
-def binom(n, k):
-
-    ans = 1
-
-    if k > n - k:
-        k = n - k
-
-    for j in range(1, k+1):
-        if n % j == 0:
-            ans *= n / j
-        elif ans % j == 0:
-            ans = ans / j * n
-        else:
-            ans = (ans * n) / j
-
-        n -= 1
-
-    return ans
+    return rays
 
 
-def pixel_prob_detect(pixel_i, pixel_j, detector_points, extent, mu_image):
-    def solid_angle_line(sx, sy, x1, y1, x2, y2):
-        a = (x1 - sx) ** 2 + (y1 - sy) ** 2
-        b = (x2 - sx) ** 2 + (y2 - sy) ** 2
-        c = (x1 - x2) ** 2 + (y1 - y2) ** 2
-
-        num = a + b - c
-        denom = 2 * np.sqrt(a) * np.sqrt(b)
-        angle = np.arccos(np.abs(num / denom))
-        if angle > np.pi / 2.:
-            angle = np.pi - angle
-        return angle
-
-    pixel_x = pixel_i / (mu_image.shape[0]) * (extent[1] - extent[0]) + extent[0] + 0.5 * (extent[1] - extent[0]) / mu_image.shape[0]
-    pixel_y = pixel_j / (mu_image.shape[1]) * (extent[3] - extent[2]) + extent[2] + 0.5 * (extent[3] - extent[2]) / mu_image.shape[1]
-
-    prob_detect = 0
-
-    for i in range(detector_points.shape[0] - 1):
-        detector_center_x = (detector_points[i, 0] + detector_points[i+1, 0]) / 2.
-        detector_center_y = (detector_points[i, 1] + detector_points[i+1, 1]) / 2.
-        line = np.array([pixel_x, pixel_y, detector_center_x, detector_center_y], dtype=np.double)
-
-        absorbance_out = raytrace.raytrace_fast(line, extent, mu_image)
-        exit_prob = np.exp(-absorbance_out)
-
-        solid_angle = solid_angle_line(pixel_x, pixel_y, detector_points[0, 0], detector_points[0, 1],
-                                       detector_points[1, 0], detector_points[1, 1])
-        prob_detect += solid_angle * exit_prob
-
-    return prob_detect
+def transmission_project(rays, image, extent, step_size=1e-3):
+    projection = raytrace.raytrace_bulk_bilinear(rays.reshape(-1, rays.shape[-1]), image, extent, step_size=step_size)
+    return projection.reshape(rays.shape[0], rays.shape[1])
 
 
-def pixel_fission_response_sinogram(rays, mu_image, mu_f_image, p_image, angles):
+def transmission_backproject(rays, sinogram, image_shape, extent, step_size=1e-3):
+    return raytrace.raytrace_backproject_bulk(rays.reshape(-1, rays.shape[-1]), sinogram.flatten(), image_shape, extent,
+                                              step_size=step_size)
+
+
+# Fission Algorithms
+def fission_project(rays, k, mu_image, mu_f_image, p_image, extent, step_size=1e-3):
     pass
 
 
-def pixel_fission_response(source_x, source_y, pixel_i, pixel_j, extent, k, detector_points, mu_image, mu_f_image, p_image):
-
-    pixel_x = pixel_i / (mu_image.shape[0]) * (extent[1] - extent[0]) + extent[0] + 0.5 * (extent[1] - extent[0]) / mu_image.shape[0]
-    pixel_y = pixel_j / (mu_image.shape[1]) * (extent[3] - extent[2]) + extent[2] + 0.5 * (extent[3] - extent[2]) / mu_image.shape[1]
-
-    line = np.array([source_x, source_y, pixel_x, pixel_y], dtype=np.double)
-    attenuation = raytrace.raytrace_fast(line, extent, mu_image)
-
-    prob_in = np.exp(-attenuation)
-    prob_density_fission = mu_f_image[pixel_i, pixel_j]
-
-    # prob_detect = pixel_prob_detect(pixel_i, pixel_j, detector_points, extent, mu_image)
-    prob_detect = 0.2
-
-    p_fission = p_image[pixel_i, pixel_j]
-    # nu_dist = nu_distribution(p_fission)
-    nu_dist = np.array([0.0237898, 0.1555525, 0.3216515, 0.3150433, 0.1444732, 0.0356013, 0.0034339, 0.0004546])
-
-    prob_out = 0
-    for i in range(nu_dist.shape[0]):
-        prob_out += binom(i, k) * nu_dist[i] * (prob_detect ** k) * ((1 - prob_detect) ** (i - k))
-
-    pixel_prob_density = prob_in * prob_out * prob_density_fission
-
-    return pixel_prob_density
+def fission_backproject(rays, k, mu_image, mu_f_image, p_image, extent, step_size=1e-3):
+    pass
 
 
-def fission_sinogram(source_rays, detector_points, extent, mu_image, mu_f_image, p_image, k=1, rays_downsample=5):
-    fission_response = np.zeros((source_rays.shape[0]), dtype=np.double)
-    for i in range(source_rays.shape[0]):
-        line = source_rays[i]
-        pixels, distances = raytrace.raytrace_fast_store(line, extent, mu_image)
-        for j in range(pixels.shape[0]):
-            fission_response[i] += pixel_fission_response(line[0], line[1], pixels[j, 0], pixels[j, 1], extent, k,
-                                                          detector_points, mu_image, mu_f_image, p_image)
+def detect_probability(point, image, extent, detector_points, step_size=1e-3):
 
-    return fission_response
+    detector_prob = 0
+
+    for i in range(detector_points.shape[0]-1):
+        detector_line = [detector_points[i][0], detector_points[i][1],
+                         detector_points[i+1][0], detector_points[i+1][1]]
+
+        detector_center_x = (detector_line[0] + detector_line[2]) / 2.
+        detector_center_y = (detector_line[1] + detector_line[3]) / 2.
+
+        exit_ray = [point[0], point[1], detector_center_x, detector_center_y]
+
+        exit_absorbance = raytrace.raytrace_bilinear(exit_ray, image, extent, step_size=step_size)
+        exit_prob = exp(-exit_absorbance)
+
+        solid_angle_prob = solid_angle(detector_line, point)
+
+        detector_prob += exit_prob * solid_angle_prob
+
+    return detector_prob
 
 
-def fission_rotation_sinogram(source_rays, detector_points, angles, extent, mu_image, mu_f_image, p_image, k=1):
+def fission_probability(ray, k, mu_image, mu_f_image, p_image, extent, detector_points, step_size=1e-3):
+    # assumes rays originate outside of image boundaries defined by extent
+    ex1, ex2, ey1, ey2 = extent
 
-    result = np.zeros((angles.shape[0], source_rays.shape[0]), dtype=np.double)
+    line = raytrace.line_box_overlap_line(ray, extent)
+    line_distance = sqrt((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2)
+    if line_distance == 0:
+        return
 
-    for i, angle in enumerate(angles):
-        rotated_rays = rotate_rays(source_rays, angle)
-        rotated_detector_points = rotate_points(detector_points, angle)
-        print(result.shape)
-        result[i] = fission_sinogram(rotated_rays, rotated_detector_points, extent, mu_image, mu_f_image, p_image, k)
+    fission_prob_integral = 0
+    absorbance_in = 0.
+    n_steps = max(int(floor(line_distance / step_size)), 2)
+    step = line_distance / n_steps
+    pos = np.array([line[0], line[1]], dtype=np.double)
 
-    return result
+    mu = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+    mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+    p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
+    if mu <= 0 or mu_f <= 0 or p <= 0:
+        fission_prob_prev = 0
+    else:
+        absorbance_in += 0.
+
+        enter_prob = exp(-absorbance_in)
+        detector_prob = detect_probability(pos, mu_image, extent, detector_points, step_size)
+        exit_prob = exit_probability(p, k, nu_dist, detector_prob)
+
+        mu_prev = mu
+        fission_prob_prev = enter_prob * mu_f * exit_prob
+
+    for i in range(n_steps - 1):
+        pos[0] = line[0] + (i+1) * (line[2] - line[0]) / n_steps
+        pos[1] = line[1] + (i+1) * (line[3] - line[1]) / n_steps
+
+        mu = c_bilinear_interpolation(pos[0], pos[1], mu_image, ex1, ex2, ey1, ey2)
+        if mu <= 0:
+            mu_prev = 0
+            continue
+        mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+        if mu_f <= 0:
+            continue
+        p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
+        if p <= 0:
+            continue
+
+        absorbance_in += (mu_prev + mu) * (line_distance / n_steps / 2)
+
+        enter_prob = exp(-absorbance_in)
+        detector_prob = detect_probability(pos, mu_image, extent, detector_points, step_size)
+        exit_prob = exit_probability(p, k, nu_dist, detector_prob)
+
+        fission_prob = enter_prob * mu_f * exit_prob
+
+        fission_prob_integral += (fission_prob + fission_prob_prev) * (line_distance / n_steps / 2)
+
+        mu_prev = mu
+        fission_prob_prev = fission_prob
+
+    return fission_prob_integral
 
 
 if __name__ == '__main__':
@@ -429,25 +391,79 @@ if __name__ == '__main__':
     plt.show()
     """
     # test backproject
+    """
     radius = 40
     detector_arc_angle = 40
-    n_rays=200
+    n_rays = 200
+    n_angles = 200
     step_size = 0.05
-    angles = np.linspace(0, 360, 200)
+
+    angles = np.linspace(0, 360, n_angles)
+    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
+    sino = transmission_project(rays, mu_im.data, mu_im.extent, step_size=step_size)
+    backprojection = transmission_backproject(rays, sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
+
     plt.figure()
     plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
-
-    sino = transmission_project(mu_im.data, mu_im.extent, angles, radius, detector_arc_angle, n_rays, step_size=step_size)
+    draw_rays(rays[0])
 
     plt.figure()
     plt.imshow(sino, extent=[-detector_arc_angle/2, detector_arc_angle/2, angles[0], angles[-1]], aspect='auto', interpolation='nearest')
 
-    backprojection = transmission_backproject(sino, mu_im.data.shape, mu_im.extent, angles, radius, detector_arc_angle, n_rays, step_size=1e-3)
-
     plt.figure()
     plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
+
+    plt.show()
+    """
+    # Test Kaczmarz's Algorithm
+    """
+    radius = 40
+    detector_arc_angle = 40
+    n_rays = 200
+    n_angles = 200
+    step_size = 0.05
+
+    angles = np.linspace(0, 360, n_angles)
+    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
+
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+
+    sino = transmission_project(rays, mu_im.data, mu_im.extent, step_size=step_size)
+    backprojection = transmission_backproject(rays, sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
+
+    def kaczmarz(rays, extent, sino, m0, step_size):
+        for i in range(m0.shape[0]):
+            m[i+1] = m[i] - transmission_project(rays[i+1], m[i], extent, step_size=step_size) - sino[i+1]
+    """
+    # Test Fission Sinogram
+    radius = 40
+    detector_arc_angle = 40
+    n_rays = 200
+    n_angles = 200
+    step_size = 0.05
+
+    angles = np.linspace(0, 360, n_angles)
+    rays = fan_rays(radius, detector_arc_angle, n_rays, midpoint=True)
+
+    detector_points = arc_detector_points(-radius, 0, radius * 2, detector_arc_angle, n_rays, midpoint=False)
+
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+
+    plt.figure()
+    plt.imshow(mu_f_im.data, extent=mu_f_im.extent, origin='lower')
+    plt.figure()
+    plt.imshow(p_im.data, extent=p_im.extent, origin='lower')
+
+    sinogram = np.zeros(rays.shape[0], dtype=np.double)
+    for i in range(rays.shape[0]):
+        print(i, ' / ', rays.shape[0])
+        sinogram[i] = fission_probability(rays[i], 1, mu_im.data, mu_f_im.data, p_im.data, mu_im.extent,
+                                          detector_points, step_size=0.05)
+
+    plt.figure()
+    plt.plot(sinogram)
 
     plt.show()

@@ -32,6 +32,7 @@ def shielded_true_images(supersample=4):
 
     snx, sny = nx*supersample, ny*supersample
 
+    # transmission
     trans_im = Image.new('F', (nx*supersample, ny*supersample), color=0)
     draw = ImageDraw.Draw(trans_im)
     draw.rectangle([cartesian_to_image(-10, -5, extent, snx, sny),
@@ -52,6 +53,7 @@ def shielded_true_images(supersample=4):
     trans_im = trans_im.resize((nx, ny), Image.BILINEAR)
     trans_arr = np.array(trans_im, dtype=np.double)
 
+    # fission
     fission_im = Image.new('F', (snx, sny), color=0)
     draw = ImageDraw.Draw(fission_im)
 
@@ -63,7 +65,8 @@ def shielded_true_images(supersample=4):
     fission_im = fission_im.resize((nx, ny), Image.BILINEAR)
     fission_arr = np.array(fission_im, dtype=np.double)
 
-    p_im = Image.new('F', (nx, ny), color=0)
+    # p
+    p_im = Image.new('F', (snx, sny), color=0)
     draw = ImageDraw.Draw(p_im)
     draw.ellipse([cartesian_to_image(origin - outer_radius, -outer_radius, extent, snx, sny),
                   cartesian_to_image(origin + outer_radius, outer_radius, extent, snx, sny)], fill=1.0)
@@ -84,6 +87,9 @@ def shielded_true_images(supersample=4):
     slope = -0.05 / (1.1*3.8)
     p_arr += slope * xv - 0.05
 
-    p_arr[p_mask != 1] = 0
+    p_arr[p_mask <= 0] = 0
+    p_arr[p_arr <= 0] = 0
+
+    # p_arr = np.array(p_im, dtype=np.double)
 
     return [Data(extent, trans_arr), Data(extent, fission_arr), Data(extent, p_arr)]
