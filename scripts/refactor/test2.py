@@ -19,7 +19,7 @@ from utils import Data
 import raytrace
 import algorithms
 from math import sqrt, acos, fabs, exp, floor
-from raytrace_c import c_bilinear_interpolation, detect_probability
+from raytrace_c import c_bilinear_interpolation, fission_probability
 
 
 nu_u235_induced = \
@@ -152,88 +152,65 @@ def fission_backproject(rays, k, mu_image, mu_f_image, p_image, extent, step_siz
     pass
 
 
-def detect_probability(point, image, extent, detector_points, step_size=1e-3):
-
-    detector_prob = 0
-
-    for i in range(detector_points.shape[0]-1):
-        detector_line = [detector_points[i][0], detector_points[i][1],
-                         detector_points[i+1][0], detector_points[i+1][1]]
-
-        detector_center_x = (detector_line[0] + detector_line[2]) / 2.
-        detector_center_y = (detector_line[1] + detector_line[3]) / 2.
-
-        exit_ray = [point[0], point[1], detector_center_x, detector_center_y]
-
-        exit_absorbance = raytrace.raytrace_bilinear(exit_ray, image, extent, step_size=step_size)
-        exit_prob = exp(-exit_absorbance)
-
-        solid_angle_prob = solid_angle(detector_line, point)
-
-        detector_prob += exit_prob * solid_angle_prob
-
-    return detector_prob
-
-
-def fission_probability(ray, k, mu_image, mu_f_image, p_image, extent, detector_points, step_size=1e-3):
-    # assumes rays originate outside of image boundaries defined by extent
-    ex1, ex2, ey1, ey2 = extent
-
-    line = raytrace.line_box_overlap_line(ray, extent)
-    line_distance = sqrt((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2)
-    if line_distance == 0:
-        return
-
-    fission_prob_integral = 0
-    absorbance_in = 0.
-    n_steps = max(int(floor(line_distance / step_size)), 2)
-    step = line_distance / n_steps
-    pos = np.array([line[0], line[1]], dtype=np.double)
-
-    mu = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
-    mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
-    p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
-    if mu <= 0 or mu_f <= 0 or p <= 0:
-        fission_prob_prev = 0
-    else:
-        absorbance_in += 0.
-
-        enter_prob = exp(-absorbance_in)
-        detector_prob = detect_probability(pos, mu_image, extent, detector_points, step_size)
-        exit_prob = exit_probability(p, k, nu_dist, detector_prob)
-
-        mu_prev = mu
-        fission_prob_prev = enter_prob * mu_f * exit_prob
-
-    for i in range(n_steps - 1):
-        pos[0] = line[0] + (i+1) * (line[2] - line[0]) / n_steps
-        pos[1] = line[1] + (i+1) * (line[3] - line[1]) / n_steps
-
-        mu = c_bilinear_interpolation(pos[0], pos[1], mu_image, ex1, ex2, ey1, ey2)
-        if mu <= 0:
-            mu_prev = 0
-            continue
-        mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
-        if mu_f <= 0:
-            continue
-        p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
-        if p <= 0:
-            continue
-
-        absorbance_in += (mu_prev + mu) * (line_distance / n_steps / 2)
-
-        enter_prob = exp(-absorbance_in)
-        detector_prob = detect_probability(pos, mu_image, extent, detector_points, step_size)
-        exit_prob = exit_probability(p, k, nu_dist, detector_prob)
-
-        fission_prob = enter_prob * mu_f * exit_prob
-
-        fission_prob_integral += (fission_prob + fission_prob_prev) * (line_distance / n_steps / 2)
-
-        mu_prev = mu
-        fission_prob_prev = fission_prob
-
-    return fission_prob_integral
+# def fission_probability(ray, k, mu_image, mu_f_image, p_image, extent, detector_points, step_size=1e-3):
+#     # assumes rays originate outside of image boundaries defined by extent
+#     ex1, ex2, ey1, ey2 = extent
+#
+#     line = raytrace.line_box_overlap_line(ray, extent)
+#     line_distance = sqrt((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2)
+#     if line_distance == 0:
+#         return
+#
+#     fission_prob_integral = 0
+#     absorbance_in = 0.
+#     n_steps = max(int(floor(line_distance / step_size)), 2)
+#     step = line_distance / n_steps
+#     pos = np.array([line[0], line[1]], dtype=np.double)
+#
+#     mu = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+#     mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+#     p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
+#     if mu <= 0 or mu_f <= 0 or p <= 0:
+#         fission_prob_prev = 0
+#     else:
+#         absorbance_in += 0.
+#
+#         enter_prob = exp(-absorbance_in)
+#         detector_prob = detect_probability(pos, mu_image, extent, detector_points, step_size)
+#         exit_prob = exit_probability(p, k, nu_dist, detector_prob)
+#
+#         mu_prev = mu
+#         fission_prob_prev = enter_prob * mu_f * exit_prob
+#
+#     for i in range(n_steps - 1):
+#         pos[0] = line[0] + (i+1) * (line[2] - line[0]) / n_steps
+#         pos[1] = line[1] + (i+1) * (line[3] - line[1]) / n_steps
+#
+#         mu = c_bilinear_interpolation(pos[0], pos[1], mu_image, ex1, ex2, ey1, ey2)
+#         if mu <= 0:
+#             mu_prev = 0
+#             continue
+#         mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+#         if mu_f <= 0:
+#             continue
+#         p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
+#         if p <= 0:
+#             continue
+#
+#         absorbance_in += (mu_prev + mu) * (line_distance / n_steps / 2)
+#
+#         enter_prob = exp(-absorbance_in)
+#         detector_prob = detect_probability(pos, mu_image, *extent, detector_points, step_size)
+#         exit_prob = exit_probability(p, k, nu_dist, detector_prob)
+#
+#         fission_prob = enter_prob * mu_f * exit_prob
+#
+#         fission_prob_integral += (fission_prob + fission_prob_prev) * (line_distance / n_steps / 2)
+#
+#         mu_prev = mu
+#         fission_prob_prev = fission_prob
+#
+#     return fission_prob_integral
 
 
 if __name__ == '__main__':
@@ -443,27 +420,39 @@ if __name__ == '__main__':
     detector_arc_angle = 40
     n_rays = 200
     n_angles = 200
-    step_size = 0.05
+    step_size = 0.1
 
     angles = np.linspace(0, 360, n_angles)
-    rays = fan_rays(radius, detector_arc_angle, n_rays, midpoint=True)
+    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
 
     detector_points = arc_detector_points(-radius, 0, radius * 2, detector_arc_angle, n_rays, midpoint=False)
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
     plt.figure()
+    plt.imshow(mu_im.data, extent=mu_f_im.extent, origin='lower')
+    # draw_rays(rays[0])
+    plt.figure()
     plt.imshow(mu_f_im.data, extent=mu_f_im.extent, origin='lower')
     plt.figure()
     plt.imshow(p_im.data, extent=p_im.extent, origin='lower')
 
-    sinogram = np.zeros(rays.shape[0], dtype=np.double)
-    for i in range(rays.shape[0]):
-        print(i, ' / ', rays.shape[0])
-        sinogram[i] = fission_probability(rays[i], 1, mu_im.data, mu_f_im.data, p_im.data, mu_im.extent,
-                                          detector_points, step_size=0.05)
+    rays_ = rays.reshape(-1, rays.shape[-1])
+    sinogram = np.zeros(rays_.shape[0], dtype=np.double)
+    for i in range(rays_.shape[0]):
+        if i % 100 == 0:
+            print(i, ' / ', rays_.shape[0])
+        sinogram[i] = fission_probability(rays_[i], 2, mu_im.data, mu_f_im.data, p_im.data, mu_im.extent,
+                                          detector_points, nu_dist, step_size=0.05)
+
+    sinogram = sinogram.reshape(rays.shape[0], rays.shape[1])
 
     plt.figure()
-    plt.plot(sinogram)
+    plt.imshow(sinogram, extent=[-detector_arc_angle / 2, detector_arc_angle / 2, angles[0], angles[-1]], aspect='auto',
+               interpolation='nearest')
+
+    backprojection = transmission_backproject(rays, sinogram, mu_im.data.shape, mu_im.extent, step_size=step_size)
+    plt.figure()
+    plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
 
     plt.show()

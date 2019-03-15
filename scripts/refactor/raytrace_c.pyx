@@ -1,7 +1,8 @@
 cimport cython
 
 from libc.math cimport floor, ceil, sqrt, pow, acos, fabs, M_PI, exp
-
+import numpy as np
+cimport numpy as np
 
 cpdef unsigned int binom(unsigned int n, unsigned int k):
     cdef:
@@ -349,13 +350,18 @@ cpdef detect_probability(double[::1] point, double[:, ::1] image, double ex1, do
         double exit_absorbance
         double exit_prob
         double solid_angle_prob
+        np.ndarray exit_ray = np.zeros(4, dtype=np.double)
+
+    exit_ray[0] = point[0]
+    exit_ray[1] = point[1]
 
     for i in range(detector_points.shape[0]-1):
 
         detector_center_x = (detector_points[i, 0] + detector_points[i+1, 0]) / 2.
         detector_center_y = (detector_points[i, 1] + detector_points[i+1, 1]) / 2.
 
-        exit_ray = [point[0], point[1], detector_center_x, detector_center_y]
+        exit_ray[2] = detector_center_x
+        exit_ray[3] = detector_center_y
 
         exit_absorbance = c_raytrace_bilinear(exit_ray, ex1, ex2, ey1, ey2, image, step_size)
         exit_prob = exp(-exit_absorbance)
@@ -367,3 +373,78 @@ cpdef detect_probability(double[::1] point, double[:, ::1] image, double ex1, do
         detector_prob += exit_prob * solid_angle_prob
 
     return detector_prob
+
+
+cpdef double fission_probability(double[::1] line, unsigned int k, double[:, ::1] mu_image, double[:, ::1] mu_f_image,
+                                 double[:, ::1] p_image, double[::1] extent, double[:, ::1] detector_points,
+                                 double[::1] nu_dist, double step_size=1e-3):
+    cdef:
+        double ex1, ex2, ey1, ey2
+        double line_distance
+        double fission_prob_integral = 0
+        double absorbance_in = 0
+        unsigned int n_steps
+        double step
+        np.ndarray pos = np.zeros(2, np.double)
+        double mu, mu_f, p
+        double fission_prob_prev = 0.
+        double enter_prob, detector_prob, exit_prob, mu_prev
+
+    # assumes rays originate outside of image boundaries defined by extent
+    ex1, ex2, ey1, ey2 = extent
+
+    c_line_box_overlap_line(line, ex1, ex2, ey1, ey2)
+
+    line_distance = sqrt((line[2] - line[0]) ** 2 + (line[3] - line[1]) ** 2)
+    if line_distance == 0:
+        return 0.
+
+    n_steps = max(int(floor(line_distance / step_size)), 2)
+    step = line_distance / n_steps
+    pos[0] = line[0]
+    pos[1] = line[1]
+
+    mu = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+    mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+    p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
+    if mu <= 0 or mu_f <= 0 or p <= 0:
+        fission_prob_prev = 0
+    else:
+        absorbance_in += 0.
+
+        enter_prob = exp(-absorbance_in)
+        detector_prob = detect_probability(pos, mu_image, ex1, ex2, ey1, ey2, detector_points, step_size)
+        exit_prob = exit_probability(p, k, nu_dist, detector_prob)
+
+        mu_prev = mu
+        fission_prob_prev = enter_prob * mu_f * exit_prob
+
+    for i in range(n_steps - 1):
+        pos[0] = line[0] + (i+1) * (line[2] - line[0]) / n_steps
+        pos[1] = line[1] + (i+1) * (line[3] - line[1]) / n_steps
+
+        mu = c_bilinear_interpolation(pos[0], pos[1], mu_image, ex1, ex2, ey1, ey2)
+        if mu <= 0:
+            mu_prev = 0
+            continue
+        mu_f = c_bilinear_interpolation(pos[0], pos[1], mu_f_image, ex1, ex2, ey1, ey2)
+        if mu_f <= 0:
+            continue
+        p = c_bilinear_interpolation(pos[0], pos[1], p_image, ex1, ex2, ey1, ey2)
+        if p <= 0:
+            continue
+
+        absorbance_in += (mu_prev + mu) * (line_distance / n_steps / 2)
+
+        enter_prob = exp(-absorbance_in)
+        detector_prob = detect_probability(pos, mu_image, *extent, detector_points, step_size)
+        exit_prob = exit_probability(p, k, nu_dist, detector_prob)
+
+        fission_prob = enter_prob * mu_f * exit_prob
+
+        fission_prob_integral += (fission_prob + fission_prob_prev) * (line_distance / n_steps / 2)
+
+        mu_prev = mu
+        fission_prob_prev = fission_prob
+
+    return fission_prob_integral

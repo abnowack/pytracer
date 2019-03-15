@@ -17,7 +17,7 @@ def cartesian_to_image(x, y, extent, nx, ny):
 
 
 def shielded_true_images(supersample=4):
-    extent = [-12, 12, -8, 8]
+    extent = np.array([-12, 12, -8, 8], dtype=np.double)
     delta = 0.2
     nx = int((extent[1] - extent[0]) / delta)
     ny = int((extent[3] - extent[2]) / delta)
