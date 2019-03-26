@@ -396,7 +396,7 @@ if __name__ == '__main__':
     plt.show()
     """
     # Test Kaczmarz's Algorithm
-    """
+    # """
     radius = 40
     detector_arc_angle = 40
     n_rays = 200
@@ -411,11 +411,49 @@ if __name__ == '__main__':
     sino = transmission_project(rays, mu_im.data, mu_im.extent, step_size=step_size)
     backprojection = transmission_backproject(rays, sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
 
-    def kaczmarz(rays, extent, sino, m0, step_size):
-        for i in range(m0.shape[0]):
-            m[i+1] = m[i] - transmission_project(rays[i+1], m[i], extent, step_size=step_size) - sino[i+1]
-    """
+    plt.figure()
+    sino_extent = [-detector_arc_angle/2, detector_arc_angle/2, angles[0], angles[-1]]
+    plt.imshow(sino, extent=sino_extent, aspect='auto', interpolation='nearest')
+
+    plt.figure()
+    plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
+
+    # kaczmarz stuff
+    def kaczmarz_reconstruction(n_steps, rays, image_shape, image_extent, data_sinogram, step_size):
+        flat_rays = rays.reshape(-1, 4)
+        indices = np.random.permutation(flat_rays.shape[0])
+        m_old = np.zeros(image_shape, dtype=np.double)
+
+        for ii in range(n_steps):
+            i = ii % flat_rays.shape[0]
+            iindex = indices[i]
+
+            numerator = raytrace.raytrace_bilinear(flat_rays[iindex], m_old, extent=mu_im.extent, step_size=step_size)
+            numerator -= data_sinogram.item(iindex)
+
+            G_row = np.zeros(image_shape, dtype=np.double)
+            raytrace.raytrace_backproject(flat_rays[iindex], 1, G_row, extent=image_extent, step_size=step_size)
+
+            denominator = np.sqrt(np.sum(G_row.flatten() * G_row.flatten()))
+            value = numerator / denominator
+
+            m_new = np.zeros(mu_im.data.shape, dtype=np.double)
+            raytrace.raytrace_backproject(flat_rays[iindex], value, m_new, extent=mu_im.extent, step_size=step_size)
+
+            m_new = m_old - m_new
+            m_old[:] = m_new
+
+        return m_new
+
+    mu_kaczmarz = kaczmarz_reconstruction(40000 * 5, rays, mu_im.data.shape, mu_im.extent, sino, step_size)
+    
+
+    plt.figure()
+    plt.imshow(mu_kaczmarz, extent=mu_im.extent, origin='lower')
+
+    plt.show()
     # Test Fission Sinogram
+    """
     radius = 40
     detector_arc_angle = 40
     n_rays = 200
@@ -456,3 +494,4 @@ if __name__ == '__main__':
     plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
 
     plt.show()
+    """
