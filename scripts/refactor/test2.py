@@ -1,12 +1,7 @@
 """
-[x] Fix bug in siddon for flat lines
-[x] get Sinograms working
-[x] create one pixel response
-[x] create response matrix
-[ ] reconstruct transmission, fission mu
-[ ] convert fission response
-
-[ ] Calculate forward response data
+[ ] Speed up Fission Projection
+[ ] Get reconstruction algorithms working for fission sinograms
+[ ] Get CGLS working
 """
 
 
@@ -134,8 +129,12 @@ def fan_rays(radius, arc_angle, n_rays, angles=None, midpoint=False):
 
 
 def transmission_project(rays, image, extent, step_size=1e-3):
-    projection = raytrace.raytrace_bulk_bilinear(rays.reshape(-1, rays.shape[-1]), image, extent, step_size=step_size)
-    return projection.reshape(rays.shape[0], rays.shape[1])
+    if rays.ndim > 2:
+        projection = raytrace.raytrace_bulk_bilinear(rays.reshape(-1, rays.shape[-1]), image, extent, step_size=step_size)
+        return projection.reshape(rays.shape[0], rays.shape[1])
+    else:
+        projection = raytrace.raytrace_bulk_bilinear(rays, image, extent, step_size=step_size)
+        return projection
 
 
 def transmission_backproject(rays, sinogram, image_shape, extent, step_size=1e-3):
@@ -396,7 +395,7 @@ if __name__ == '__main__':
     plt.show()
     """
     # Test Kaczmarz's Algorithm
-    # """
+    """
     radius = 40
     detector_arc_angle = 40
     n_rays = 200
@@ -446,12 +445,13 @@ if __name__ == '__main__':
         return m_new
 
     mu_kaczmarz = kaczmarz_reconstruction(40000 * 5, rays, mu_im.data.shape, mu_im.extent, sino, step_size)
-    
+
 
     plt.figure()
     plt.imshow(mu_kaczmarz, extent=mu_im.extent, origin='lower')
 
     plt.show()
+    """
     # Test Fission Sinogram
     """
     radius = 40
@@ -495,3 +495,162 @@ if __name__ == '__main__':
 
     plt.show()
     """
+    # Test CGLS
+    """
+    radius = 40
+    detector_arc_angle = 40
+    n_rays = 200
+    n_angles = 200
+    step_size = 0.05
+
+    angles = np.linspace(0, 360, n_angles)
+    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
+
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+
+    sino = transmission_project(rays, mu_im.data, mu_im.extent, step_size=step_size)
+    backprojection = transmission_backproject(rays, sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
+
+    plt.figure()
+    sino_extent = [-detector_arc_angle/2, detector_arc_angle/2, angles[0], angles[-1]]
+    plt.imshow(sino, extent=sino_extent, aspect='auto', interpolation='nearest')
+
+    plt.figure()
+    plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
+
+    def CGLS_reconstruction(n_steps, rays, image_shape, image_extent, data_sinogram, step_size):
+        m_k = np.zeros(image_shape, dtype=np.double)
+        p_k = np.zeros(image_shape, dtype=np.double)
+        beta_k = 0
+        s_k = -np.copy(data_sinogram)
+        r_k = transmission_backproject(rays, s_k, image_shape, image_extent, step_size)
+
+        for k in range(n_steps):
+            p_k = -r_k + beta_k * p_k
+
+            G_p_k = transmission_project(rays, p_k, image_extent, step_size)
+
+            alpha_k = np.sum(r_k.flatten() * r_k.flatten()) / np.sum(G_p_k.flatten() * G_p_k.flatten())
+
+            m_k += alpha_k * p_k
+            s_k += alpha_k * G_p_k
+            beta_k_denom = np.sum(r_k.flatten() * r_k.flatten())
+            r_k = transmission_backproject(rays, s_k, image_shape, image_extent, step_size)
+            beta_k = np.sum(r_k.flatten() * r_k.flatten()) / beta_k_denom
+
+            print(alpha_k, beta_k)
+
+        return m_k
+
+
+    def CGLS_reconstruction2(n_steps, rays, image_shape, image_extent, data_sinogram, L, step_size):
+        xi = np.ones(image_shape, dtype=np.double)
+        ri = data_sinogram - transmission_project(rays, xi, image_extent, step_size)
+        si = transmission_backproject(rays, ri, image_shape, image_extent, step_size)
+        si -= L * xi
+        pi = np.copy(si)
+
+        norms0 = np.linalg.norm(si)**2
+        gamma = np.linalg.norm(si) ** 2
+        normx = np.linalg.norm(xi)
+        xmax = normx
+
+        for i in range(n_steps):
+            print(i)
+            qi = transmission_project(rays, pi, image_extent, step_size)
+            delta = np.linalg.norm(qi) ** 2 + L * np.linalg.norm(pi) ** 2
+            alphai = gamma / delta
+            xi += alphai * pi
+            ri -= alphai * qi
+            si = transmission_backproject(rays, ri, image_shape, image_extent, step_size)
+            si -= L * xi
+
+            print(xi.flatten()[1325])
+
+            norms = np.linalg.norm(si)
+            gamma1 = gamma
+            gamma = norms**2
+            beta = gamma / gamma1
+            pi = si + beta * pi
+
+            normx = np.linalg.norm(xi)
+            print(normx)
+
+        return xi
+
+
+    def CGLS_reconstruction3(n_steps, rays, image_shape, image_extent, data_sinogram, L, step_size):
+        nrays = rays.shape[1]
+
+        x = np.zeros(image_shape, dtype=np.double)
+        r = data_sinogram - transmission_project(rays, x, image_extent, step_size)
+        d = transmission_backproject(rays, r, image_shape, image_extent, step_size) / nrays
+
+        AT_r = transmission_backproject(rays, r, image_shape, image_extent, step_size) / nrays
+        AT_rprevnorm = np.linalg.norm(AT_r)
+        A_d = transmission_project(rays, d, image_extent, step_size)
+
+        for k in range(n_steps):
+            alpha = (AT_rprevnorm ** 2) / (np.linalg.norm(A_d) ** 2)
+
+            x = x + alpha * d
+            r = r - alpha * A_d
+
+            AT_r = transmission_backproject(rays, r, image_shape, image_extent, step_size) / nrays
+
+            beta = (np.linalg.norm(AT_r) ** 2) / (AT_rprevnorm ** 2)
+            d = AT_r + beta * d
+
+            A_d = transmission_project(rays, d, image_extent, step_size)
+            AT_rprevnorm = np.linalg.norm(AT_r)
+
+        return x
+
+
+    import cProfile
+
+    pr = cProfile.Profile()
+    pr.enable()
+    mu_CGLS = CGLS_reconstruction3(5, rays, mu_im.data.shape, mu_im.extent, sino, 1000000, step_size)
+    pr.disable()
+    pr.print_stats(sort='time')
+
+    plt.figure()
+    plt.imshow(mu_CGLS, extent=mu_im.extent, origin='lower')
+
+    plt.show()
+    """
+    # Test backprojection normalization
+    # """
+    radius = 40
+    detector_arc_angle = 40
+    n_rays = 200
+    n_angles = 200
+    step_size = 0.005
+
+    angles = np.linspace(0, 360, n_angles)
+    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
+
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+
+    mu_im.data[:] = 0
+    mu_im.data[20:50, 20] = 1
+
+    sino = transmission_project(rays[0], mu_im.data, mu_im.extent, step_size=step_size)
+    backprojection = transmission_backproject(rays[0], sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
+
+    plt.figure()
+    plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
+
+    plt.figure()
+    sino_extent = [-detector_arc_angle / 2, detector_arc_angle / 2, angles[0], angles[-1]]
+    plt.plot(sino)
+
+    plt.figure()
+    plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
+
+    plt.figure()
+    plt.plot(backprojection.sum(axis=1))
+
+    plt.show()
+    # """
