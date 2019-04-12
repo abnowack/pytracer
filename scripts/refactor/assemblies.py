@@ -93,3 +93,16 @@ def shielded_true_images(supersample=4):
     # p_arr = np.array(p_im, dtype=np.double)
 
     return [Data(extent, trans_arr), Data(extent, fission_arr), Data(extent, p_arr)]
+
+
+def ut_logo():
+    extent = np.array([-12, 12, -8, 8], dtype=np.double)
+
+    im = Image.open("ut-icon-mono.bmp")
+    rot_im = im.transpose(Image.FLIP_TOP_BOTTOM)
+
+    ut_image = np.array(rot_im, dtype=np.double)
+    ut_image = 1.0 - ut_image
+    ut_image *= 0.1
+
+    return [Data(extent, ut_image), Data(extent, ut_image), Data(extent, ut_image)]

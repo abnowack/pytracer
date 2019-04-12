@@ -1,6 +1,6 @@
 cimport cython
 
-from libc.math cimport floor, ceil, sqrt, pow, acos, fabs, M_PI, exp
+from libc.math cimport floor, ceil, sqrt, pow, acos, fabs, M_PI, exp, atan2, fmod, sin, cos
 import numpy as np
 cimport numpy as np
 
@@ -224,91 +224,102 @@ cpdef double c_raytrace_bulk_bilinear(double[:, ::1] lines, double ex1, double e
         sinogram[i] = c_raytrace_bilinear(lines[i], ex1, ex2, ey1, ey2, pixels, step_size)
 
 
-cpdef c_raytrace_backproject_bilinear(double x, double y, double value, double[:, ::1] pixels, double ex1,
-                                      double ex2, double ey1, double ey2):
-    """
-    NOTE: ASSUMES PIXELS IS ZERO PADDED
-    a ---- b
-    | x    |
-    |      |
-    c ---- d
-    """
+cpdef double interp1d(double[::1] xs, double[::1] ys, double xnew, double left=0, double right=0) except? -1:
     cdef:
-        double delx
-        double dely
-        int i1, j1, i2, j2
-        double x1, y1
-        double t, u
-        double interp
+        unsigned int index, index_left, index_right
+        double prev_distance = 1e10
+        double distance
+        double ynew
 
-    delx = (ex2 - ex1) / pixels.shape[1]
-    dely = (ey2 - ey1) / pixels.shape[0]
+    if xs[0] < xs[-1]:
+        if xnew < xs[0]:
+            return left
+        elif xnew > xs[-1]:
+            return right
 
-    if x < (ex1 + delx / 2.) or x >= (ex2 - delx / 2.):
-        return
-    if y < (ey1 + dely / 2.) or y >= (ey2 - dely / 2.):
-        return
+        for i in range(xs.shape[0]):
+            distance = xnew - xs[i]
+            if distance < prev_distance and distance >= 0:
+                index_left = i
+                index_right = i+1
+                prev_distance = distance
+    else:
+        if xnew > xs[0]:
+            return left
+        elif xnew < xs[-1]:
+            return right
 
-    # get index of lower left corner
-    i1 = int(floor((x - ex1 - delx / 2.) / (ex2 - ex1 - delx) * (pixels.shape[1] - 1)))
-    j1 = int(floor((y - ey1 - dely / 2.) / (ey2 - ey1 - dely) * (pixels.shape[0] - 1)))
-    i2 = i1 + 1
-    j2 = j1 + 1
+        for i in range(xs.shape[0]):
+            distance = xs[i] - xnew
+            if distance < prev_distance and distance >= 0:
+                index_left = i
+                index_right = i+1
+                prev_distance = distance
 
-    x1 = ex1 + delx / 2. + i1 * delx
-    y1 = ey1 + dely / 2. + j1 * dely
+    ynew = ys[index_left] + (ys[index_right] - ys[index_left]) * (xnew - xs[index_left]) / (xs[index_right] - xs[index_left])
 
-    t = (x - x1) / delx
-    u = (y - y1) / dely
-
-    pixels[j1, i1] += (1 - t) * (1 - u) * value
-    pixels[j1, i2] += t * (1 - u) * value
-    pixels[j2, i2] += t * u * value
-    pixels[j2, i1] += (1 - t) * u * value
-
-    # pixels[j1, i1] += 1
-    # pixels[j1, i2] += 1
-    # pixels[j2, i2] += 1
-    # pixels[j2, i1] += 1
-
-    return
+    return ynew
 
 
-cpdef c_raytrace_backproject(double[::1] line, double value, double ex1, double ex2, double ey1, double ey2, double[:, ::1] pixels,
-                            double step_size=1e-3):
+cpdef double pixel_coord_to_radian(unsigned int i, unsigned int j, unsigned int nx, unsigned int ny,
+                                   double ex1, double ex2, double ey1, double ey2, double source_x, double source_y):
     cdef:
-        double line_distance
-        double bli_start, bli_end
-        double integral
-        int n_steps
-        double step
-        double bli_prev, bli_next
-        int i
-        double pos_x, pos_y
+        double dx, dy
+        double center_x, center_y
+        double value
 
-    c_line_box_overlap_line(line, ex1, ex2, ey1, ey2)
+    dx = (ex2 - ex1) / nx
+    dy = (ey2 - ey1) / ny
 
-    line_distance = sqrt((line[2] - line[0])**2 + (line[3] - line[1])**2)
+    center_x = ex1 + (i + 0.5) * dx
+    center_y = ey1 + (j + 0.5) * dy
 
-    if line_distance == 0:
-        return
+    value = atan2(center_y - source_y, center_x - source_x) - atan2(-source_y, -source_x)
+    value = fmod(value + 2 * M_PI, 2 * M_PI)
 
-    if line_distance < 2 * step_size:
-        c_raytrace_backproject_bilinear(line[0], line[1], value / 2., pixels, ex1, ex2, ey1, ey2)
-        c_raytrace_backproject_bilinear(line[2], line[3], value / 2., pixels, ex1, ex2, ey1, ey2)
-        return
+    return value
 
-    integral = 0
-    n_steps = int(floor(line_distance / step_size))
-    step = line_distance / n_steps
 
-    for i in range(n_steps + 1):
-        pos_x = line[0] + i * (line[2] - line[0]) / n_steps
-        pos_y = line[1] + i * (line[3] - line[1]) / n_steps
+cpdef double pixel_coord_to_ss(unsigned int i, unsigned int j, unsigned int nx, unsigned int ny,
+                                double ex1, double ex2, double ey1, double ey2, double radian):
+    cdef:
+        double dx, dy
+        double center_x, center_y
+        double value
 
-        c_raytrace_backproject_bilinear(pos_x, pos_y, value / (n_steps + 1), pixels, ex1, ex2, ey1, ey2)
+    dx = (ex2 - ex1) / nx
+    dy = (ey2 - ey1) / ny
 
-    return
+    center_x = ex1 + (i + 0.5) * dx
+    center_y = ey1 + (j + 0.5) * dy
+
+    value = center_x * cos(radian) + center_y * sin(radian)
+
+    return value
+
+
+cpdef void c_backproject_fan(double[::1] radians, double[::1] sinogram, double source_x, double source_y,
+                               double ex1, double ex2, double ey1, double ey2, double[:, ::1] pixels):
+    cdef:
+        unsigned int i, j
+        double pixel_radian
+
+    for j in range(pixels.shape[0]):
+        for i in range(pixels.shape[1]):
+            pixel_radian = pixel_coord_to_radian(i, j, pixels.shape[1], pixels.shape[0], ex1, ex2, ey1, ey2, source_x, source_y)
+            pixels[j, i] += interp1d(radians, sinogram, pixel_radian, 0, 0)
+
+
+cpdef void c_backproject_parallel(double radian, double[::1] ss, double[::1] sinogram, double ex1, double ex2, double ey1,
+                                  double ey2, double[:, ::1] pixels):
+    cdef:
+        unsigned int i, j
+        double pixel_ss
+
+    for j in range(pixels.shape[0]):
+        for i in range(pixels.shape[1]):
+            pixel_ss = pixel_coord_to_ss(i, j, pixels.shape[1], pixels.shape[0], ex1, ex2, ey1, ey2, radian)
+            pixels[j, i] += interp1d(ss, sinogram, pixel_ss, 0, 0)
 
 
 # Fission stuff

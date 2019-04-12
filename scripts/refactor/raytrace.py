@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
-from raytrace_c import c_line_box_overlap_line, c_raytrace_bilinear, c_raytrace_bulk_bilinear, c_raytrace_backproject
+from raytrace_c import c_line_box_overlap_line, c_raytrace_bilinear, c_raytrace_bulk_bilinear, interp1d
 
 _raytrace_cache = np.zeros((500000), dtype=np.double)
 _pixel_cache = np.zeros((10000, 2), dtype=np.int)
@@ -54,7 +54,15 @@ def raytrace_backproject_bulk(rays, sinogram, image_shape, extent, step_size=1e-
     rays_copy = np.copy(rays)
 
     for i in range(rays_copy.shape[0]):
-
         c_raytrace_backproject(rays_copy[i], sinogram[i], extent[0], extent[1], extent[2], extent[3], backprojection, step_size)
 
     return backprojection
+
+
+def interp(xs, ys, xnew, left=0., right=0.):
+    ynew = np.zeros(xnew.shape[0], dtype=np.double)
+
+    for i in range(xnew.shape[0]):
+        ynew[i] = interp1d(xs, ys, xnew[i], left, right)
+
+    return ynew

@@ -14,7 +14,7 @@ from utils import Data
 import raytrace
 import algorithms
 from math import sqrt, acos, fabs, exp, floor
-from raytrace_c import c_bilinear_interpolation, fission_probability
+from raytrace_c import c_bilinear_interpolation, fission_probability, c_backproject_parallel, c_backproject_fan
 
 
 nu_u235_induced = \
@@ -23,32 +23,14 @@ nu_u235_induced = \
 nu_dist = nu_u235_induced
 
 
-def draw_algorithm(extent, image, draw_rays=True):
-
-    plt.imshow(image.T, extent=extent, origin='lower')
-
-    if draw_rays:
-        # vertical lines
-        for i in range(np.size(image, 0) + 1):
-            x = extent[0] + (extent[1] - extent[0]) / np.size(image, 0) * i
-            plt.plot([x, x], [extent[2], extent[3]], 'g')
-
-        # horizontal lines
-        for i in range(np.size(image, 1) + 1):
-            y = extent[2] + (extent[3] - extent[2]) / np.size(image, 1) * i
-            plt.plot([extent[0], extent[1]], [y, y], 'g')
-
-
 def draw_rays(rays, draw_option='b-'):
     for ray in rays:
         plt.plot([ray[0], ray[2]], [ray[1], ray[3]], draw_option, lw=1)
 
 
-def rotate_points(points, angle, pivot=None, convert_to_radian=True):
+def rotate_points(points, radian, pivot=None):
     rotated_points = np.copy(points)
-    if convert_to_radian:
-        angle = angle / 180. * np.pi
-    rotation_matrix = np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
+    rotation_matrix = np.array([[np.cos(radian), np.sin(radian)], [-np.sin(radian), np.cos(radian)]])
 
     if pivot is not None:
         rotated_points -= pivot
@@ -61,17 +43,16 @@ def rotate_points(points, angle, pivot=None, convert_to_radian=True):
     return rotated_points
 
 
-def rotate_rays(rays, angle, pivot=None):
+def rotate_rays(rays, radian, pivot=None):
     rotated_rays = np.copy(rays)
-    rotated_rays[:, :2] = rotate_points(rotated_rays[:, :2], angle, pivot)
-    rotated_rays[:, 2:] = rotate_points(rotated_rays[:, 2:], angle, pivot)
+    rotated_rays[:, :2] = rotate_points(rotated_rays[:, :2], radian, pivot)
+    rotated_rays[:, 2:] = rotate_points(rotated_rays[:, 2:], radian, pivot)
     return rotated_rays
 
 
-def arc_detector_points(center_x, center_y, radius, arc_angle, n_points, midpoint=False):
+def arc_detector_points(center_x, center_y, radius, arc_radian, n_points, midpoint=False):
 
     points = np.zeros((n_points, 2), dtype=np.double)
-    arc_radian = arc_angle / 180. * np.pi
 
     if midpoint:
         radian_edges = np.linspace(arc_radian/2, -arc_radian/2, n_points+1)
@@ -85,50 +66,46 @@ def arc_detector_points(center_x, center_y, radius, arc_angle, n_points, midpoin
     return points
 
 
-# def solid_angle_line(line, point):
-#
-#     a = (line[0] - point[0]) * (line[0] - point[0]) + (line[1] - point[1]) * (line[1] - point[1])
-#     b = (line[2] - point[0]) * (line[2] - point[0]) + (line[3] - point[1]) * (line[3] - point[1])
-#     c = (line[0] - line[2]) * (line[0] - line[2]) + (line[1] - line[3]) * (line[1] - line[3])
-#
-#     num = a + b - c
-#     denom = 2 * sqrt(a) * sqrt(b)
-#     angle = acos(fabs(num / denom))
-#     if angle > np.pi / 2.:
-#         angle = np.pi - angle
-#
-#     return angle
-
-
-def parallel_rays(minx, maxx, miny, maxy, n_rays):
-    rays = np.zeros((n_rays, 4), dtype=np.double)
-    rays[:, 0] = minx
-    rays[:, 2] = maxx
-    rays[:, 1] = np.linspace(miny, maxy, n_rays)
-    rays[:, 3] = rays[:, 1]
+def parallel_rays(ss, radians, length):
+    rays = np.zeros((len(radians), len(ss), 4), dtype=np.double)
+    for j, radian in enumerate(radians):
+        for i, s in enumerate(ss):
+            rays[j, i, 0] = s * np.cos(radian) + length / 2. * np.sin(radian)
+            rays[j, i, 1] = s * np.sin(radian) - length / 2. * np.cos(radian)
+            rays[j, i, 2] = s * np.cos(radian) - length / 2. * np.sin(radian)
+            rays[j, i, 3] = s * np.sin(radian) + length / 2. * np.cos(radian)
 
     return rays
 
 
-def fan_rays(radius, arc_angle, n_rays, angles=None, midpoint=False):
-    if angles is None:
-        rays = np.zeros((n_rays, 4), dtype=np.double)
-        rays[:, (0, 1)] = np.array([-radius, 0])
-        rays[:, (2, 3)] = arc_detector_points(-radius, 0, radius * 2, arc_angle, n_rays, midpoint)
-
-        return rays
-
-    rays = np.zeros((angles.shape[0], n_rays, 4), dtype=np.double)
+def fan_rays(radius, radian, n_rays, radians, midpoint=False):
+    rays = np.zeros((len(radians), n_rays, 4), dtype=np.double)
     rays[:, :, (0, 1)] = np.array([-radius, 0])
-    rays[:, :, (2, 3)] = arc_detector_points(-radius, 0, radius * 2, arc_angle, n_rays, midpoint)
-    for i in range(angles.shape[0]):
-        rays[i, :, :2] = rotate_points(rays[i, :, :2], angles[i])
-        rays[i, :, 2:] = rotate_points(rays[i, :, 2:], angles[i])
+    rays[:, :, (2, 3)] = arc_detector_points(-radius, 0, radius * 2, radian, n_rays, midpoint)
+
+    for i in range(len(radians)):
+        rays[i, :, :2] = rotate_points(rays[i, :, :2], radians[i])
+        rays[i, :, 2:] = rotate_points(rays[i, :, 2:], radians[i])
 
     return rays
 
 
-def transmission_project(rays, image, extent, step_size=1e-3):
+def generate_rays(ray_geom):
+    if ray_geom['type'] == 'fan':
+        rays = fan_rays(ray_geom['radius'], ray_geom['detector_arc_radian'], ray_geom['n_rays'], ray_geom['radians'],
+                        ray_geom['midpoint'])
+    elif ray_geom['type'] == 'parallel':
+        rays = parallel_rays(ray_geom['ss'], ray_geom['radians'], ray_geom['length'])
+    else:
+        rays = None
+
+    return rays
+
+
+def transmission_project(ray_geom, image, extent, step_size=1e-3, rays=None):
+    if rays is None:
+        rays = generate_rays(ray_geom)
+
     if rays.ndim > 2:
         projection = raytrace.raytrace_bulk_bilinear(rays.reshape(-1, rays.shape[-1]), image, extent, step_size=step_size)
         return projection.reshape(rays.shape[0], rays.shape[1])
@@ -137,10 +114,130 @@ def transmission_project(rays, image, extent, step_size=1e-3):
         return projection
 
 
-def transmission_backproject(rays, sinogram, image_shape, extent, step_size=1e-3):
-    return raytrace.raytrace_backproject_bulk(rays.reshape(-1, rays.shape[-1]), sinogram.flatten(), image_shape, extent,
-                                              step_size=step_size)
+def padded_radians(ray_geom):
+    # create rays with extra rays on the ends for the zero padding in the interpolation step
+    dradian = ray_geom['detector_arc_radian'] / ray_geom['n_rays']
 
+    pad_n_rays = ray_geom['n_rays'] + 2
+    pad_arc_radian = dradian * pad_n_rays
+
+    if ray_geom['midpoint']:
+        radian_edges = np.linspace(pad_arc_radian / 2, -pad_arc_radian / 2, pad_n_rays + 1)
+        pad_radians = (radian_edges[1:] + radian_edges[:-1]) / 2.
+    else:
+        pad_radians = np.linspace(pad_arc_radian / 2, -pad_arc_radian / 2, pad_n_rays)
+
+    return pad_radians
+
+
+def transmission_backproject(ray_geom, sinogram, image_shape, extent, step_size=1e-3, rays=None):
+    def backproject_fan(ray_geom, sinogram, image_shape, extent):
+
+        def pixel_center_radians(ray_geom, radian, image_shape):
+            # calculate radian value at each pixel
+            pixel_radians = np.zeros((image_shape[1] * image_shape[0]), dtype=np.double)
+            pixel_radians = pixel_radians % np.pi * 2
+
+            dx = (extent[1] - extent[0]) / image_shape[1]
+            dy = (extent[3] - extent[2]) / image_shape[0]
+
+            for j in range(image_shape[0]):
+                for i in range(image_shape[1]):
+                    center_x = extent[0] + (i + 0.5) * dx
+                    center_y = extent[2] + (j + 0.5) * dy
+
+                    source_x = -ray_geom['radius'] * np.cos(radian)
+                    source_y = -ray_geom['radius'] * np.sin(radian)
+
+                    value = np.arctan2(-source_y, -source_x) - np.arctan2(center_y - source_y, center_x - source_x)
+
+                    pixel_radians[i + j * image_shape[1]] = -value
+
+            pixel_radians += np.pi * 2
+            pixel_radians = pixel_radians % (np.pi * 2)
+            return pixel_radians
+
+        backprojection = np.zeros(image_shape, dtype=np.double)
+        radians = padded_radians(ray_geom)
+        interp_radians = np.copy(radians) + (np.pi * 2)
+        interp_radians = interp_radians % (np.pi * 2)
+
+        for i, radian in enumerate(ray_geom['radians']):
+            pixel_radians = pixel_center_radians(ray_geom, radian, image_shape)
+            interp_sinogram = np.zeros(radians.shape[0])
+            interp_sinogram[1:-1] = sinogram[i]
+
+            backprojection += np.interp(pixel_radians, interp_radians, interp_sinogram, period=2*np.pi).reshape(image_shape)
+
+        # return pixel_radians.reshape(image_shape)
+        return backprojection
+
+    def backproject_parallel(ray_geom, sinogram, image_shape, extent):
+
+        def pixel_center_ss(ray_geom, radian, image_shape):
+            # calculate radian value at each pixel
+            pixel_ss = np.zeros((image_shape[1] * image_shape[0]), dtype=np.double)
+
+            dx = (extent[1] - extent[0]) / image_shape[1]
+            dy = (extent[3] - extent[2]) / image_shape[0]
+
+            for j in range(image_shape[0]):
+                for i in range(image_shape[1]):
+                    center_x = extent[0] + (i + 0.5) * dx
+                    center_y = extent[2] + (j + 0.5) * dy
+
+                    ss = center_x * np.cos(radian) + center_y * np.sin(radian)
+
+                    pixel_ss[i + j * image_shape[1]] = ss
+
+            return pixel_ss
+
+        backprojection = np.zeros(image_shape, dtype=np.double)
+
+        for i, radian in enumerate(ray_geom['radians']):
+            pixel_ss = pixel_center_ss(ray_geom, radian, image_shape)
+            backprojection += np.interp(pixel_ss, ray_geom['ss'], sinogram[i], left=0, right=0).reshape(image_shape)
+
+        return backprojection
+
+    if ray_geom['type'] == 'fan':
+        return backproject_fan(ray_geom, sinogram, image_shape, extent)
+    elif ray_geom['type'] == 'parallel':
+        return backproject_parallel(ray_geom, sinogram, image_shape, extent)
+
+
+def c_transmission_backproject_fan(ray_geom, sinogram, image_shape, extent, step_size=1e-3, rays=None):
+    backprojection = np.zeros(image_shape, dtype=np.double)
+    radians = padded_radians(ray_geom)
+    interp_sinogram = np.zeros(radians.shape[0])
+
+    period = 2 * np.pi
+
+    radians = radians % period
+    asort_radian = np.argsort(radians)
+    radians = radians[asort_radian]
+    radians = np.concatenate((radians[-1:]-period, radians, radians[0:1]+period))
+
+    for i, radian in enumerate(ray_geom['radians']):
+        interp_sinogram[1:-1] = sinogram[i]
+        interp_sinogram = interp_sinogram[asort_radian]
+        interp_sinogram2 = np.concatenate((interp_sinogram[-1:], interp_sinogram, interp_sinogram[0:1]))
+
+        source_x = -ray_geom['radius'] * np.cos(radian)
+        source_y = -ray_geom['radius'] * np.sin(radian)
+
+        c_backproject_fan(radians, interp_sinogram2, source_x, source_y, extent[0], extent[1], extent[2], extent[3], backprojection)
+
+    return backprojection
+
+
+def c_transmission_backproject_parallel(ray_geom, sinogram, image_shape, extent, step_size=1e-3, rays=None):
+    backprojection = np.zeros(image_shape, dtype=np.double)
+
+    for i, radian in enumerate(ray_geom['radians']):
+        c_backproject_parallel(radian, ray_geom['ss'], sinogram[i], extent[0], extent[1], extent[2], extent[3], backprojection)
+
+    return backprojection
 
 # Fission Algorithms
 def fission_project(rays, k, mu_image, mu_f_image, p_image, extent, step_size=1e-3):
@@ -150,6 +247,60 @@ def fission_project(rays, k, mu_image, mu_f_image, p_image, extent, step_size=1e
 def fission_backproject(rays, k, mu_image, mu_f_image, p_image, extent, step_size=1e-3):
     pass
 
+
+def kaczmarz_reconstruction(n_steps, ray_geom, image_shape, image_extent, data_sinogram, step_size):
+    rays = generate_rays(ray_geom)
+    flat_rays = rays.reshape(-1, 4)
+    indices = np.random.permutation(flat_rays.shape[0])
+    m_old = np.zeros(image_shape, dtype=np.double)
+
+    for ii in range(n_steps):
+        i = ii % flat_rays.shape[0]
+        iindex = indices[i]
+
+        numerator = raytrace.raytrace_bilinear(flat_rays[iindex], m_old, extent=mu_im.extent, step_size=step_size)
+        numerator -= data_sinogram.item(iindex)
+
+        G_row = np.zeros(image_shape, dtype=np.double)
+        raytrace.raytrace_backproject(flat_rays[iindex], 1, G_row, extent=image_extent, step_size=step_size)
+
+        denominator = np.sqrt(np.sum(G_row.flatten() * G_row.flatten()))
+        value = numerator / denominator
+
+        m_new = np.zeros(mu_im.data.shape, dtype=np.double)
+        raytrace.raytrace_backproject(flat_rays[iindex], value, m_new, extent=mu_im.extent, step_size=step_size)
+
+        m_new = m_old - m_new
+        m_old[:] = m_new
+
+    return m_new
+
+
+def CGLS_reconstruction(n_steps, ray_geom, image_shape, image_extent, data_sinogram, step_size):
+    x = np.zeros(image_shape, dtype=np.double)
+    r = data_sinogram - transmission_project(ray_geom, x, image_extent, step_size)
+    d = transmission_backproject(ray_geom, r, image_shape, image_extent, step_size)
+
+    AT_r = transmission_backproject(ray_geom, r, image_shape, image_extent, step_size)
+    AT_rprevnorm = np.linalg.norm(AT_r)
+    A_d = transmission_project(ray_geom, d, image_extent, step_size)
+
+    for k in range(n_steps):
+        print(k)
+        alpha = (AT_rprevnorm ** 2) / (np.linalg.norm(A_d) ** 2)
+
+        x = x + alpha * d
+        r = r - alpha * A_d
+
+        AT_r = transmission_backproject(ray_geom, r, image_shape, image_extent, step_size)
+
+        beta = (np.linalg.norm(AT_r) ** 2) / (AT_rprevnorm ** 2)
+        d = AT_r + beta * d
+
+        A_d = transmission_project(ray_geom, d, image_extent, step_size)
+        AT_rprevnorm = np.linalg.norm(AT_r)
+
+    return x
 
 # def fission_probability(ray, k, mu_image, mu_f_image, p_image, extent, detector_points, step_size=1e-3):
 #     # assumes rays originate outside of image boundaries defined by extent
@@ -496,161 +647,68 @@ if __name__ == '__main__':
     plt.show()
     """
     # Test CGLS
-    """
-    radius = 40
-    detector_arc_angle = 40
-    n_rays = 200
-    n_angles = 200
-    step_size = 0.05
-
-    angles = np.linspace(0, 360, n_angles)
-    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
+    # """
+    import cProfile
+    # ray_geom = {'type': 'fan', 'radius': 40, 'detector_arc_radian': 40 / 180. * np.pi, 'n_rays': 200,
+    #             'radians': np.linspace(0., 2 * np.pi, 100), 'midpoint': True}
+    ray_geom = {'type': 'parallel', 'ss': np.linspace(-20, 20, 100), 'radians': np.linspace(0, np.pi, 100), 'length': 40}
+    step_size = 0.00137
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
+    mu_im.data[:] = 0
+    mu_im.data[20:50, 20:27] = 1
 
-    sino = transmission_project(rays, mu_im.data, mu_im.extent, step_size=step_size)
-    backprojection = transmission_backproject(rays, sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
-
-    plt.figure()
-    sino_extent = [-detector_arc_angle/2, detector_arc_angle/2, angles[0], angles[-1]]
-    plt.imshow(sino, extent=sino_extent, aspect='auto', interpolation='nearest')
-
-    plt.figure()
-    plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
-
-    def CGLS_reconstruction(n_steps, rays, image_shape, image_extent, data_sinogram, step_size):
-        m_k = np.zeros(image_shape, dtype=np.double)
-        p_k = np.zeros(image_shape, dtype=np.double)
-        beta_k = 0
-        s_k = -np.copy(data_sinogram)
-        r_k = transmission_backproject(rays, s_k, image_shape, image_extent, step_size)
-
-        for k in range(n_steps):
-            p_k = -r_k + beta_k * p_k
-
-            G_p_k = transmission_project(rays, p_k, image_extent, step_size)
-
-            alpha_k = np.sum(r_k.flatten() * r_k.flatten()) / np.sum(G_p_k.flatten() * G_p_k.flatten())
-
-            m_k += alpha_k * p_k
-            s_k += alpha_k * G_p_k
-            beta_k_denom = np.sum(r_k.flatten() * r_k.flatten())
-            r_k = transmission_backproject(rays, s_k, image_shape, image_extent, step_size)
-            beta_k = np.sum(r_k.flatten() * r_k.flatten()) / beta_k_denom
-
-            print(alpha_k, beta_k)
-
-        return m_k
-
-
-    def CGLS_reconstruction2(n_steps, rays, image_shape, image_extent, data_sinogram, L, step_size):
-        xi = np.ones(image_shape, dtype=np.double)
-        ri = data_sinogram - transmission_project(rays, xi, image_extent, step_size)
-        si = transmission_backproject(rays, ri, image_shape, image_extent, step_size)
-        si -= L * xi
-        pi = np.copy(si)
-
-        norms0 = np.linalg.norm(si)**2
-        gamma = np.linalg.norm(si) ** 2
-        normx = np.linalg.norm(xi)
-        xmax = normx
-
-        for i in range(n_steps):
-            print(i)
-            qi = transmission_project(rays, pi, image_extent, step_size)
-            delta = np.linalg.norm(qi) ** 2 + L * np.linalg.norm(pi) ** 2
-            alphai = gamma / delta
-            xi += alphai * pi
-            ri -= alphai * qi
-            si = transmission_backproject(rays, ri, image_shape, image_extent, step_size)
-            si -= L * xi
-
-            print(xi.flatten()[1325])
-
-            norms = np.linalg.norm(si)
-            gamma1 = gamma
-            gamma = norms**2
-            beta = gamma / gamma1
-            pi = si + beta * pi
-
-            normx = np.linalg.norm(xi)
-            print(normx)
-
-        return xi
-
-
-    def CGLS_reconstruction3(n_steps, rays, image_shape, image_extent, data_sinogram, L, step_size):
-        nrays = rays.shape[1]
-
-        x = np.zeros(image_shape, dtype=np.double)
-        r = data_sinogram - transmission_project(rays, x, image_extent, step_size)
-        d = transmission_backproject(rays, r, image_shape, image_extent, step_size) / nrays
-
-        AT_r = transmission_backproject(rays, r, image_shape, image_extent, step_size) / nrays
-        AT_rprevnorm = np.linalg.norm(AT_r)
-        A_d = transmission_project(rays, d, image_extent, step_size)
-
-        for k in range(n_steps):
-            alpha = (AT_rprevnorm ** 2) / (np.linalg.norm(A_d) ** 2)
-
-            x = x + alpha * d
-            r = r - alpha * A_d
-
-            AT_r = transmission_backproject(rays, r, image_shape, image_extent, step_size) / nrays
-
-            beta = (np.linalg.norm(AT_r) ** 2) / (AT_rprevnorm ** 2)
-            d = AT_r + beta * d
-
-            A_d = transmission_project(rays, d, image_extent, step_size)
-            AT_rprevnorm = np.linalg.norm(AT_r)
-
-        return x
-
-
-    import cProfile
+    rays = generate_rays(ray_geom)
+    #
 
     pr = cProfile.Profile()
     pr.enable()
-    mu_CGLS = CGLS_reconstruction3(5, rays, mu_im.data.shape, mu_im.extent, sino, 1000000, step_size)
+
+    sino = transmission_project(ray_geom, mu_im.data, mu_im.extent, step_size=step_size)
+    # backprojection = transmission_backproject(ray_geom, sino, mu_im.data.shape, mu_im.extent, step_size=step_size) / len(ray_geom['radians'])
+    backprojection = c_transmission_backproject_parallel(ray_geom, sino, mu_im.data.shape, mu_im.extent, step_size=step_size) / len(ray_geom['radians'])
+    # backprojection = c_transmission_backproject_fan(ray_geom, sino, mu_im.data.shape, mu_im.extent, step_size=step_size) / len(ray_geom['radians'])
     pr.disable()
     pr.print_stats(sort='time')
+    # print(sino)
 
-    plt.figure()
-    plt.imshow(mu_CGLS, extent=mu_im.extent, origin='lower')
-
-    plt.show()
-    """
-    # Test backprojection normalization
-    # """
-    radius = 40
-    detector_arc_angle = 40
-    n_rays = 200
-    n_angles = 200
-    step_size = 0.005
-
-    angles = np.linspace(0, 360, n_angles)
-    rays = fan_rays(radius, detector_arc_angle, n_rays, angles, midpoint=True)
-
-    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
-
-    mu_im.data[:] = 0
-    mu_im.data[20:50, 20] = 1
-
-    sino = transmission_project(rays[0], mu_im.data, mu_im.extent, step_size=step_size)
-    backprojection = transmission_backproject(rays[0], sino, mu_im.data.shape, mu_im.extent, step_size=step_size)
+    # mu_recon = CGLS_reconstruction(5, ray_geom, mu_im.data.shape, mu_im.extent, sino, step_size)
+    # mu_recon = kaczmarz_reconstruction(40000 * 5, ray_geom, mu_im.data.shape, mu_im.extent, sino, step_size)
 
     plt.figure()
     plt.imshow(mu_im.data, extent=mu_im.extent, origin='lower')
+    # draw_rays(rays[0])
 
     plt.figure()
-    sino_extent = [-detector_arc_angle / 2, detector_arc_angle / 2, angles[0], angles[-1]]
-    plt.plot(sino)
-
+    # sino_extent = [-ray_geom['detector_arc_radian'] / 2, ray_geom['detector_arc_radian'] / 2, 0, 2 * np.pi]
+    sino_extent = [ray_geom['ss'][0], ray_geom['ss'][-1], ray_geom['radians'][0], ray_geom['radians'][-1]]
+    plt.imshow(sino, extent=sino_extent, origin='lower', aspect='auto')
+    #
     plt.figure()
     plt.imshow(backprojection, extent=mu_im.extent, origin='lower')
 
-    plt.figure()
-    plt.plot(backprojection.sum(axis=1))
+    # plt.figure()
+    # plt.imshow(mu_recon, extent=mu_im.extent, origin='lower')
 
     plt.show()
     # """
+    # test 1d interp
+    """
+
+    xs = np.array([-1, 0, 0.1, 2, 3], dtype=np.double)
+    rxs = np.copy(xs[::-1])
+    ys = xs ** 3 - 2 * xs ** 2 + 1
+
+    plt.figure()
+    plt.scatter(rxs, ys)
+
+    xnew = np.linspace(-2, 4, 400, dtype=np.double)
+    ynew = raytrace.interp(rxs, ys, xnew)
+
+    # plt.figure()
+    plt.plot(xnew, ynew)
+    plt.scatter(xnew, ynew, marker='.')
+
+    plt.show()
+
+    """
