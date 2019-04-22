@@ -1,0 +1,12 @@
+import os
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def make_ext(modname, pyxfilename):
+    from distutils.extension import Extension
+    import numpy
+
+    print(modname, pyxfilename)
+    return Extension(modname,
+                     sources=[pyxfilename, "cos_doubles.c"],
+                     include_dirs=[numpy.get_include(), THIS_DIR])
