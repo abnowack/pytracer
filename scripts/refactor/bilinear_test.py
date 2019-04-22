@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
 
     plt.figure()
-    my_zs = bilinear(image, extent, xs, ys)
+    my_zs = tomo.bilinear_interpolate(xs, ys, image, extent)
     plt.imshow(my_zs, extent=extent, origin='lower')
 
 

@@ -1,0 +1,13 @@
+import numpy as np
+# import pyximport; pyximport.install(setup_args={'include_dirs': np.get_include()})
+import doubleit
+import matplotlib.pyplot as plt
+
+print(dir(doubleit))
+
+x = np.arange(0, 10, 0.1)
+y = np.empty_like(x)
+
+doubleit.doubleit_func(x, y)
+plt.plot(x, y)
+plt.show()
