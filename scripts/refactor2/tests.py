@@ -128,12 +128,12 @@ def test_ray_geometry(type='parallel', theta=0., other_coord_n=50):
 
     plt.figure()
     draw_extent(extent)
-    draw_rays(rays, arrow=True)
+    draw_rays(rays[7], arrow=True)
     plt.axes().set_aspect('equal', 'datalim')
 
     plt.figure()
     draw_extent(extent)
-    draw_rays(crop_rays, arrow=True)
+    draw_rays(crop_rays[7], arrow=True)
 
     plt.axes().set_aspect('equal', 'datalim')
     plt.show()
@@ -208,7 +208,7 @@ def test_forward_project(type='parallel', theta_n=100, other_coord_n=100):
     theta = np.linspace(0., 2 * np.pi, theta_n, endpoint=False)
     step_size = 0.01
 
-    mu_im, mu_f_im, p_im = assemblies.ut_logo()
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
     plt.figure()
     ex = list(mu_im.extent)
@@ -243,7 +243,7 @@ def test_back_project(type='parallel', theta=0., other_coord_n=100):
 
     step_size = 0.01
 
-    mu_im, mu_f_im, p_im = assemblies.ut_logo()
+    mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
     mu_im.data[:] = 0
     mu_im.data[20:50, 20:27] = 1
 
@@ -323,36 +323,37 @@ def test_cgls(steps_n, type='parallel', theta_n=100, other_coord_n=100):
     plt.show()
 
 
-"""
-def test_detector_probability(type='parallel', geo_angle=0, n_detectors=20):
+def test_detector_probability(type='parallel', theta=0., n_detectors=20):
     step_size = 0.01
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
     if type == 'parallel':
-        width = 40
-        radius = 40
+        dr = 40.
+        l = 40.
 
-        detector_points = tomo.parallel_detector(
-            geo_angle, n_detectors, width, radius)
+        detector_points = tomo.parallel_detector(n_detectors, theta, dr, l)
 
     if type == 'fan':
-        detector_angle = np.pi / 4
-        radius = 40
+        dphi = np.pi / 4
+        radius = 40.
 
-        detector_points = tomo.fan_detector(
-            geo_angle, n_detectors, detector_angle, radius)
+        detector_points = tomo.fan_detector(n_detectors, theta, dphi, radius)
 
-    detector_prob = tomo.precalculate_detector_probability(
+    detector_prob = tomo.detect_probability(
         mu_im.data, mu_im.extent, detector_points, step_size)
 
     plt.figure()
-    plot_image(detector_prob, mu_im.extent)
+    plot_image(detector_prob[0], mu_im.extent)
+
+    plt.figure()
+    plot_image(detector_prob[1], mu_im.extent)
 
     plt.show()
 
 
-def test_fission_project(type='parallel', k=1, geo_angle=0, other_coord_n=100, n_detectors=20, precalc=False):
+def test_fission_forward_project(type='parallel', k=1, theta=0., other_coord_n=100, n_detectors=20,
+                                 save=True, load=False):
     step_size = 0.01
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
@@ -362,64 +363,63 @@ def test_fission_project(type='parallel', k=1, geo_angle=0, other_coord_n=100, n
                   0.1444732, 0.0356013, 0.0034339, 0.0004546])
 
     plt.figure()
-    plot_image(mu_im)
+    plot_image(mu_im.data, mu_im.extent)
 
     if type == 'parallel':
-        length = 40
-        parallel_coords = np.linspace(-20, 20, other_coord_n)
+        length = 40.
+        r = np.linspace(-20, 20, other_coord_n)
+        dr = 40.
+        l = 40.
 
-        width = 40
-        radius = 40
-        detector_points = tomo.parallel_detector(
-            geo_angle, n_detectors, width, radius)
-
-        draw_detector(detector_points)
-
-        if not precalc:
-            sinogram = tomo.fission_forward_project_parallel(
-                geo_angle, parallel_coords, length, k,
-                mu_im.data, mu_f_im.data, p_im.data, mu_im.extent,
-                detector_points, nu_u235_induced, step_size)
-        else:
-            detector_prob = tomo.precalculate_detector_probability(
-                mu_im.data, mu_im.extent, detector_points, step_size)
-
-            sinogram = tomo.fission_precalc_forward_project_parallel(
-                geo_angle, parallel_coords, length, k, mu_im.data, mu_f_im.data, p_im.data,
-                detector_prob, mu_im.extent, nu_u235_induced, step_size)
-
-        plt.figure()
-        plt.plot(sinogram)
+        rays = tomo.parallel_ray(theta, r, length)
+        detector_points = tomo.parallel_detector(n_detectors, theta, dr, l)
 
     if type == 'fan':
-        radius = 40
-        detector_angle = np.pi / 4
+        dphi = np.pi / 4
+        radius = 40.
+        phi = np.linspace(- np.pi / 8., np.pi / 8., other_coord_n)
 
-        fan_angles = np.linspace(- detector_angle / 2,
-                                 detector_angle / 2, other_coord_n)
+        rays = tomo.fan_ray(theta, phi, radius)
+        detector_points = tomo.fan_detector(n_detectors, theta, dphi, radius)
 
-        detector_points = tomo.fan_detector(
-            geo_angle, n_detectors, detector_angle, radius)
+    if not save and load:
+        detector_prob = np.load('detector_prob.npy')
+    else:
+        detector_prob = tomo.detect_probability(
+            mu_im.data, mu_im.extent, detector_points, step_size)
 
-        draw_detector(detector_points)
+        if save:
+            np.save('detector_prob.npy', detector_prob)
 
-        if not precalc:
-            sinogram = tomo.fission_forward_project_fan(
-                geo_angle, parallel_coords, length, k,
-                mu_im.data, mu_f_im.data, p_im.data, mu_im.extent,
-                detector_points, nu_u235_induced, step_size)
+    fission_project = tomo.fission_forward_project(rays, k,
+                                                   mu_im.data, mu_f_im.data, p_im.data, detector_prob,
+                                                   mu_im.extent, nu_u235_induced, step_size)
+
+    if fission_project.ndim == 1:
+        plt.figure()
+        plt.plot(fission_project)
+    elif fission_project.ndim == 2:
+        plt.figure()
+
+        if type == 'parallel':
+            plot_sinogram(fission_project, 'parallel', theta, r)
+
+        if type == 'fan':
+            plot_sinogram(fission_project, 'fan', theta, phi)
 
     plt.show()
-"""
+
 
 if __name__ == '__main__':
     # test_ray_crop()
-    # test_ray_geometry('fan', RADIAN(301))
+    # test_ray_geometry('parallel', theta=np.linspace(
+        # 0., 2 * np.pi, 50, endpoint=False))
     # test_detector_geometry('parallel', RADIAN(301))
     # test_bilinear()
-    # test_forward_project('fan')
+    # test_forward_project('parallel', theta_n=50)
     # test_back_project('fan', theta=np.linspace(
     #    RADIAN(0), RADIAN(360), 100, endpoint=False))
-    test_cgls(5, 'parallel')
-    # test_detector_probability('fan')
-    # test_fission_project(k=3, other_coord_n=100, precalc=True)
+    # test_cgls(20, 'parallel')
+    test_fission_forward_project(
+        'fan', k=2, theta=np.linspace(0., 2 * np.pi, 50, endpoint=False),
+        save=False, load=True)

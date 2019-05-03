@@ -33,36 +33,14 @@ void _back_project_fan(
     double theta, double phi[], double radius, double projection[], unsigned int n,
     double *backproject, unsigned int pixels_nx, unsigned int pixels_ny,
     double extent[4]);
-/*
-void _back_project_fan(
-    double x1, double *x2, unsigned int x2_n, double radius, double *sinogram,
-    double *backproject, unsigned int pixels_nx, unsigned int pixels_ny,
-    double *extent);
 
 double _detect_probability(
-    double pos[2],
-    double *mu, unsigned int mu_nx, unsigned int mu_ny,
-    double detector_points[][4], unsigned int detector_points_n,
-    double extent[4], double step_size);
+    double point[2],
+    double *mu, unsigned int mu_nx, unsigned int mu_ny, double extent[4],
+    double detector_points[][4], unsigned int n, double step_size);
 
-void _precalculate_detector_probability(
-    double *values,
-    double *mu, unsigned int nx, unsigned int ny,
-    double *detector_points, unsigned int detector_points_n,
-    double extent[4], double step_size);
-
-double _fission_probability(
-    double ray[4],
-    double *mu, double *mu_f, double *p, double *detect_prob,
-    unsigned int nx, unsigned int ny,
-    unsigned int k, double nu_dist[], unsigned int nu_dist_n,
-    double extent[4], double step_size);
-
-void _fission_forward_project(
-    unsigned int n,
-    double values[], double rays[][4],
-    double *mu, double *mu_f, double *p, double *detect_prob,
-    unsigned int nx, unsigned int ny,
-    unsigned int k, double nu_dist[], unsigned int nu_dist_n,
-    double extent[4], double step_size);
-    */
+double _fission_forward_project(
+    double ray[4], unsigned int k,
+    double *mu_pixels, double *mu_f_pixels, double *p_pixels, double *detect_prob,
+    double extent[4], unsigned int nx, unsigned int ny,
+    double nu_dist[], unsigned int nu_dist_n, double step_size);

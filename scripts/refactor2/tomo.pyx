@@ -4,8 +4,12 @@
 # [ ] openmpi with prange instead of range
 # [ ] nogil?
 
+cimport cython
+
 import numpy as np
 cimport numpy as np
+
+from cython.parallel import prange
 
 np.import_array()
 
@@ -46,6 +50,16 @@ cdef extern from "tomo.h":
         double *backproject, unsigned int pixels_nx, unsigned int pixels_ny,
         double extent[4]);
 
+    double _detect_probability(
+        double point[2], 
+        double *mu, unsigned int mu_nx, unsigned int mu_ny,
+        double extent[4], double detector_points[][4], unsigned int n, double step_size);
+    
+    double _fission_forward_project(
+        double ray[4], unsigned int k,
+        double *mu_pixels, double *mu_f_pixels, double *p_pixels, double *detect_prob,
+        double extent[4], unsigned int nx, unsigned int ny,
+        double nu_dist[], unsigned int nu_dist_n, double step_size) nogil; 
 
 def ray_box_crop(np.ndarray ray not None, double[::1] extent not None):
     cdef double[::1] ray_view_1
@@ -373,109 +387,110 @@ def back_project_fan(theta, double[::1] phi, double radius, np.ndarray projectio
                 &back_projection_view[0, 0], nx, ny, &extent[0])
 
         return back_projection
-"""
 
-def back_project_fan(double geometry_angle, double[::1] fan_angles, double radius,
-                     double[::1] sinogram, double[:, ::1] backproject, double[::1] extent):
 
-    _back_project_fan(geometry_angle, &fan_angles[0], fan_angles.shape[0], radius, &sinogram[0], 
-                      &backproject[0, 0], backproject.shape[1], backproject.shape[0], &extent[0])
+def detect_probability(double[:, ::1] mu, double[::1] extent,
+    np.ndarray detector_points, double step_size):
 
-def s_back_project_fan(double[::1] geometry_angles, double[::1] fan_angles, double radius,
-                       double[:, ::1] sinogram, unsigned int pixels_nx, unsigned int pixels_ny, double[::1] extent):
-    cdef:
-        np.ndarray backproject = np.zeros((pixels_ny, pixels_nx), dtype=np.double)
-        double[:, ::1] backproject_view = backproject
+    cdef np.ndarray detect_probs
+    cdef double[:, ::1] detect_probs_view_1
+    cdef double[:, :, ::1] detect_probs_view_2
 
-    _s_back_project_fan(&geometry_angles[0], geometry_angles.shape[0], &fan_angles[0], fan_angles.shape[0], radius, &sinogram[0, 0], 
-                        &backproject_view[0, 0], backproject.shape[1], backproject.shape[0], &extent[0])
+    cdef double[:, ::1] detector_points_view_1
+    cdef double[:, :, ::1] detector_points_view_2
+
+    cdef unsigned int i, j, k
+
+    cdef double point[2]
+
+    cdef double dx = (extent[1] - extent[0]) / mu.shape[1]
+    cdef double dy = (extent[3] - extent[2]) / mu.shape[0]
+
+    if detector_points.ndim == 2:
+        detect_probs = np.zeros([mu.shape[0], mu.shape[1]], dtype=np.double)
+        detect_probs_view_1 = detect_probs
+        detector_points_view_1 = detector_points
+
+        for j in range(mu.shape[0]):
+            for i in range(mu.shape[1]):
+                point[0] = extent[0] + (i + 0.5) * dx
+                point[1] = extent[2] + (j + 0.5) * dy
+
+                detect_probs_view_1[j, i] = _detect_probability(point, &mu[0, 0], mu.shape[1], mu.shape[0], &extent[0],
+                    <double (*)[4]>&detector_points_view_1[0, 0], detector_points_view_1.shape[0], step_size)
     
-    return backproject
+        return detect_probs
 
-def fission_probability(unsigned int k, double[::1] ray, double[:, ::1] mu, double[:, ::1] mu_f, double[:, ::1] p,
-                        double[::1] extent, double[::1] detector_points, double[::1] nu, double step_size):
-    cdef:
-        unsigned int detector_points_n = <unsigned int>(detector_points.shape[0] / 4);
+    elif detector_points.ndim == 3:
+        detect_probs = np.zeros([detector_points.shape[0], mu.shape[0], mu.shape[1]], dtype=np.double)
+        detect_probs_view_2 = detect_probs
+        detector_points_view_2 = detector_points
 
-    return _fission_probability(k, &ray[0], &mu[0, 0], &mu_f[0, 0], &p[0, 0], &extent[0],
-                                mu.shape[1], mu.shape[0], &detector_points[0], detector_points_n,
-                                &nu[0], nu.shape[0], step_size)
+        for k in range(detector_points_view_2.shape[0]):
+            for j in range(mu.shape[0]):
+                for i in range(mu.shape[1]):
+                    point[0] = extent[0] + (i + 0.5) * dx
+                    point[1] = extent[2] + (j + 0.5) * dy
 
-def fission_forward_project_parallel(double geometry_angle, double[::1] parallel_coord, double length,
-                                     unsigned int k, double[:, ::1] mu, double[:, ::1] mu_f, double[:, ::1] p,
-                                     double[::1] extent, double[::1] detector_points, double[::1] nu, double step_size):
+                    detect_probs_view_2[k, j, i] = _detect_probability(point, &mu[0, 0], mu.shape[1], mu.shape[0], &extent[0],
+                        <double (*)[4]>&detector_points_view_2[k, 0, 0], detector_points_view_2.shape[1], step_size)
 
-    cdef:
-        np.ndarray fission_sinogram = np.zeros((parallel_coord.shape[0]), dtype=np.double)
-        double[::1] fission_sinogram_view = fission_sinogram
-        unsigned int detector_points_n = <unsigned int>(detector_points.shape[0] / 4);
+        return detect_probs
 
-    _fission_forward_project_parallel(
-        geometry_angle, 
-        &parallel_coord[0], parallel_coord.shape[0], 
-        length, k, 
-        &fission_sinogram_view[0], &mu[0, 0], &mu_f[0, 0], &p[0, 0], 
-        &extent[0], mu.shape[1], mu.shape[0], 
-        &detector_points[0], detector_points_n,
-        &nu[0], nu.shape[0], 
-        step_size)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def fission_forward_project(np.ndarray ray, unsigned int k,
+    double[:, ::1] mu, double[:, ::1] mu_f, double[:, ::1] p, np.ndarray detect_prob,
+    double[::1] extent, double[::1] nu_dist, double step_size):
+    cdef double[::1] ray_view_1
+    cdef double[:, ::1] ray_view_2
+    cdef double[:, :, ::1] ray_view_3
+
+    cdef double[:, ::1] detect_prob_view_1
+    cdef double[:, :, ::1] detect_prob_view_2
+
+    cdef double value
+    cdef np.ndarray values
+
+    cdef double[::1] values_view_1
+    cdef double[:, ::1] values_view_2
+
+    cdef int i, j
+
+    if ray.ndim == 1:
+        ray_view_1 = ray
+        detect_prob_view_1 = detect_prob
+
+        value = _fission_forward_project(&ray_view_1[0], k, 
+            &mu[0, 0], &mu_f[0, 0], &p[0, 0], &detect_prob_view_1[0, 0], 
+            &extent[0], mu.shape[1], mu.shape[0], 
+            &nu_dist[0], nu_dist.shape[0], step_size)
+        return value
     
-    return fission_sinogram
+    elif ray.ndim == 2:
+        ray_view_2 = ray
+        detect_prob_view_1 = detect_prob
+        values = np.zeros([ray_view_2.shape[0]], dtype=np.double)
+        values_view_1 = values
 
-def s_fission_forward_project_parallel(double[::1] geometry_angles, double[::1] parallel_coord, double length,
-                                       unsigned int k, double[:, ::1] mu, double[:, ::1] mu_f, double[:, ::1] p,
-                                       double[::1] extent, double[::1] detector_points, double[::1] nu, double step_size):
+        for i in range(ray_view_2.shape[0]):
+            values_view_1[i] = _fission_forward_project(&ray_view_2[i, 0], k, 
+                &mu[0, 0], &mu_f[0, 0], &p[0, 0], &detect_prob_view_1[0, 0], 
+                &extent[0], mu.shape[1], mu.shape[0], 
+                &nu_dist[0], nu_dist.shape[0], step_size)
+        return values
 
-    cdef:
-        np.ndarray fission_sinogram = np.zeros((geometry_angles.shape[0], parallel_coord.shape[0]), dtype=np.double)
-        double[::1] fission_sinogram_view = fission_sinogram
-        unsigned int detector_points_n = <unsigned int>(detector_points.shape[0] / 4);
+    elif ray.ndim == 3:
+        ray_view_3 = ray
+        detect_prob_view_2 = detect_prob
+        values = np.zeros([ray_view_3.shape[0], ray_view_3.shape[1]], dtype=np.double)
+        values_view_2 = values
 
+        for j in prange(ray_view_3.shape[0], nogil=True):
+            for i in range(ray_view_3.shape[1]):
+                values_view_2[j, i] = _fission_forward_project(&ray_view_3[j, i, 0], k, 
+                    &mu[0, 0], &mu_f[0, 0], &p[0, 0], &detect_prob_view_2[j, 0, 0], 
+                    &extent[0], mu.shape[1], mu.shape[0], 
+                    &nu_dist[0], nu_dist.shape[0], step_size)
 
-    _s_fission_forward_project_parallel(
-        &geometry_angles[0], geometry_angles.shape[0], 
-        &parallel_coord[0], parallel_coord.shape[0], 
-        length, k, 
-        &fission_sinogram_view[0], &mu[0, 0], &mu_f[0, 0], &p[0, 0], 
-        &extent[0], mu.shape[1], mu.shape[0], 
-        &detector_points[0], detector_points_n,
-        &nu[0], nu.shape[0], 
-        step_size)
-    
-    return fission_sinogram
-
-def precalculate_detector_probability(
-    double[:, ::1] mu, double[::1] extent, double[::1] detector_points, double step_size):
-
-    cdef:
-        np.ndarray detector_prob = np.empty_like(mu)
-        double[:, ::1] detector_prob_view = detector_prob
-        unsigned int detector_points_n = <unsigned int>(detector_points.shape[0] / 4);
-    
-    _precalculate_detector_probability(
-        &detector_prob_view[0, 0], &mu[0, 0],
-        mu.shape[1], mu.shape[0], &extent[0], &detector_points[0], detector_points_n,
-        step_size)
-    
-    return detector_prob
-
-def fission_precalc_forward_project_parallel(
-    double geometry_angle, double[::1] parallel_coord, double length, unsigned int k, 
-    double[:, ::1] mu, double[:, ::1] mu_f, double[:, ::1] p, double[:, ::1] detector_prob,
-    double[::1] extent, double[::1] nu, double step_size):
-
-    cdef:
-        np.ndarray fission_sinogram = np.zeros((parallel_coord.shape[0]), dtype=np.double)
-        double[::1] fission_sinogram_view = fission_sinogram
-
-    _fission_precalc_forward_project_parallel(
-        geometry_angle, 
-        &parallel_coord[0], parallel_coord.shape[0], 
-        length, k, 
-        &fission_sinogram_view[0], &mu[0, 0], &mu_f[0, 0], &p[0, 0], &detector_prob[0, 0],
-        &extent[0], mu.shape[1], mu.shape[0], 
-        &nu[0], nu.shape[0], 
-        step_size)
-    
-    return fission_sinogram
-"""
+        return values
