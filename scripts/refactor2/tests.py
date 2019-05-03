@@ -354,7 +354,7 @@ def test_detector_probability(type='parallel', theta=0., n_detectors=20):
 
 def test_fission_forward_project(type='parallel', k=1, theta=0., other_coord_n=100, n_detectors=20,
                                  save=True, load=False):
-    step_size = 0.01
+    step_size = 0.04
 
     mu_im, mu_f_im, p_im = assemblies.shielded_true_images()
 
@@ -421,5 +421,5 @@ if __name__ == '__main__':
     #    RADIAN(0), RADIAN(360), 100, endpoint=False))
     # test_cgls(20, 'parallel')
     test_fission_forward_project(
-        'fan', k=2, theta=np.linspace(0., 2 * np.pi, 50, endpoint=False),
-        save=False, load=True)
+        'fan', k=2, theta=np.linspace(0., 2 * np.pi, 20, endpoint=False),
+        save=True, load=False)
